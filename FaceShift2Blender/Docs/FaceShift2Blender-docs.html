@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
+	<TITLE></TITLE>
+	<META NAME="GENERATOR" CONTENT="LibreOffice 4.0.5.2 (MacOSX)">
+	<META NAME="CREATED" CONTENT="20140313;11150100">
+	<META NAME="CHANGED" CONTENT="20140313;11405500">
+	<STYLE TYPE="text/css">
+	<!--
+		@page { margin: 0.79in }
+		P { margin-bottom: 0.08in }
+		H1 { margin-bottom: 0.08in }
+		H1.western { font-family: "Arial", sans-serif; font-size: 16pt }
+		H1.cjk { font-family: "SimSun"; font-size: 16pt }
+		H1.ctl { font-family: "Lucida Sans"; font-size: 16pt }
+		A:link { so-language: zxx }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en" DIR="LTR">
+<P ALIGN=CENTER STYLE="margin-top: 0.17in; page-break-after: avoid"><FONT FACE="Arial, sans-serif"><FONT SIZE=5><B>FaceShift
+2 Blender</B></FONT></FONT></P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><I>Fabrizio Nunnari
+&lt;fabrizio.nunnari@dfki.de&gt;</I></P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><BR>
+</P>
+<P ALIGN=CENTER STYLE="margin-bottom: 0in"><SDFIELD TYPE=DATETIME SDVAL="41711.4792359954" SDNUM="9;9;D. MMM. YYYY">13. Mar. 2014</SDFIELD></P>
+<H1 CLASS="western">Introduction</H1>
+<P STYLE="margin-bottom: 0in">FaceShift 2 Blender is a <A HREF="http://www.blender.org/">Blender</A>
+addon to edit the facial expression of a <A HREF="http://www.makehuman.org/">MakeHuman</A>
+character using a Kinect-like device and the output of the <A HREF="http://www.faceshift.com/">FaceShift</A>
+expression recognition software.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in"><IMG SRC="FaceShift2Blender-docs_html_6877aa57.png" NAME="graphics1" ALIGN=LEFT WIDTH=629 HEIGHT=216 BORDER=0><BR CLEAR=LEFT>The
+following picture shows the Kinect color camera detected face (left),
+the FaceShift 3D model (center), and the piloted MakeHuman face in
+Blender (right).</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H1 CLASS="western">Installation</H1>
+<P STYLE="margin-bottom: 0in">Use the standard Blender addon
+installation procedure: menu -&gt; File -&gt; User Preferences -&gt;
+Addons (tab) -&gt; Install from File...</P>
+<P STYLE="margin-bottom: 0in">Or copy paste the script text into a
+script a script buffer and execute it.</P>
+<H1 CLASS="western">Usage</H1>
+<P STYLE="margin-bottom: 0in"><IMG SRC="FaceShift2Blender-docs_html_m25c3528d.png" NAME="graphics2" ALIGN=LEFT WIDTH=196 HEIGHT=107 BORDER=0>First,
+configure FaceShift to broadcast the captured data as UDP packets to
+localhost, port 33433.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Run FaceShift in Tracking mode.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">WARNING! Live streaming can be
+performed ONLY with FaceShift Studio version. The (cheaper) Freelance
+version allows data streaming only of recorded performances, not for
+live tracking.</P>
+<P STYLE="margin-bottom: 0in"><IMG SRC="FaceShift2Blender-docs_html_m540d01a8.png" NAME="graphics3" ALIGN=LEFT WIDTH=153 HEIGHT=171 BORDER=0><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Open Blender and load any MakeHuman
+character. Enable the FaceShift2Blender plugin, or copy the code into
+a script buffer and run it.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">A control panel will appear on the Tool
+box of the 3D View.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Select the character on which you want
+to operate.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Click “Start Net Listener” to enter
+a modal mode where the character face will be piloted by the
+FaceShift incoming data.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Press ESC to interrupt the reception
+and leave the face in its current position.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">If REC if enabled, keyframes will be
+added to the timeline to record the current live performance. The
+timeline will advance (even though the time cursor is not visible
+during recording). The list of controls that are actually recorded is
+reported later.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Recording can also be enabled/disabled
+during message reception hitting the SPACE key.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Reset Expression will bring back the
+face to its “neutral” condition (all controls at zero offset).</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Insert Keyframe can be used to insert a
+keyframe for all controls at the current frame on the timeline.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Delete Keyframe will delete the
+keyframe for the controls, if any.</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Print data to console is used for
+development only…</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<H1 CLASS="western">Appendix – MakeHuman Controls</H1>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Here the MakeHuman controls used by the
+addon to animate Head, Face and Eyes:</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Blendshape controls: PBrows, PBrow_R,
+PBrow_L, PUpLid_R, PUpLid_L, PLoLid_L, PLoLid_R, PNose, PCheek_L,
+PCheek_R, PUpLipMid, PUpLip_R, PUpLip_L, PMouth_R, PMouth_L,
+PLoLip_R, PLoLip_L, PLoLipMid, PMouthMid, PJaw</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">For Head/Jaw rotation: Neck, Jaw</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">For eyes control: Gaze</P>
+<P STYLE="margin-bottom: 0in"><BR>
+</P>
+<P STYLE="margin-bottom: 0in">Other Controls: Mhsmouth_retraction</P>
+</BODY>
+</HTML>

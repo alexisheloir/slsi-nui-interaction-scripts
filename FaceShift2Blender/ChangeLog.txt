@@ -1,0 +1,2 @@
+v1.0 - First public release. Complete control.
+v1.1 - Changed Eyes control from direct bone manipulation to gizmo control
