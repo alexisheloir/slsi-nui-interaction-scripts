@@ -463,7 +463,7 @@ class LeapDictListener:
     
 
         leap_logic = bpy.context.window_manager.leap_info.leap_logic
-            
+        
     
         leap_logic.hand_changed = False
     
@@ -538,7 +538,13 @@ class LeapDictListener:
                     bpy.ops.object.leap_modal(isRotating=True, isTranslating=True)
                     
             else:
-                #assert (self.tracking == False and hand==None):
+                #assert (self.tracking == False and hand==None)
+                
+                # We reset the location of the last stable position
+                if( (leap_logic.GRAB_MODE == leap_logic.GRAB_MODE_TIMED) ):
+                    if(leap_logic.last_drop_pos != None):
+                        print("Clearing last drop position")
+                        leap_logic.last_drop_pos = None
                 pass
         
         
@@ -586,6 +592,9 @@ class LeapInteractionLogic:
     
     def setTracking(self,b):
         self.tracking = b
+
+    def clearLastDrop():
+        self.last_drop_pos = None
 
 
 #

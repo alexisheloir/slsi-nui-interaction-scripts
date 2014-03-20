@@ -1002,12 +1002,12 @@ class LeapModal(bpy.types.Operator):
         if(self.isElbowSwivelRotating):
             
             hand = None
-            if(target_object_name == "ElbowPT_L"):
+            if(target_object_name == "ElbowPT_L" or target_object_name == "Wrist_L"):
                 hand = Hand.LEFT
-            elif(target_object_name == "ElbowPT_R"):
+            elif(target_object_name == "ElbowPT_R" or target_object_name == "Wrist_R"):
                 hand = Hand.RIGHT
             else:
-                self.report({'ERROR'}, "You have to select a MakeHuman Elbow IK handle to enable swivel rotation")
+                self.report({'ERROR'}, "You have to select a MakeHuman Elbow or Wrist IK handle to enable swivel rotation")
                 return {'CANCELLED'}
             
             
