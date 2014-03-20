@@ -44,8 +44,8 @@ RHAND_POSE_LIBRARY_NAME = "pose_library_R"
 # Delay between TIMER events when entering the modal command mode. In seconds.
 UPDATE_DELAY = 0.04
 
-SELECTION_MIN_Y = 100
-SELECTION_MAX_Y = 350
+SELECTION_MIN_Y = 50
+SELECTION_MAX_Y = 120
 
 MAX_DISPLAY_ELEMENTS = 10
 

@@ -6,3 +6,7 @@ AlexisTrialSampleCharacter.blend1
 *.pyc
 
 *.blend1
+
+*.py#
+
+.#*
