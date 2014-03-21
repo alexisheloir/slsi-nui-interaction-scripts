@@ -16,10 +16,13 @@
 
 
 import bpy
+import mathutils
 
 import threading
 import json
 import math
+import time
+
 
 # Extras
 import websocket
@@ -425,3 +428,396 @@ class CircleGestureSelector:
         assert (gesture != None)
         
         return gesture
+
+#
+#
+#
+
+
+class HandMotionAnalyzer:
+
+    @staticmethod
+    def countFingers(hand_id, leap_dict):
+        count = 0
+        for p in leap_dict["pointables"]:
+            if(p["tool"] == False
+                and p["handId"] == hand_id):
+                count +=1
+        
+        return count
+
+    
+    #BUFFER_MAX_SIZE = 20
+    BUFFER_MAX_AGE_SECS = 2
+    
+    HAND_MAX_SPEED = 1000
+    
+    
+    max_speed=0
+    
+    def __init__(self):
+        # Will contain a list of the last N valid positions of an hand
+        # Each element will be a tuple <time, position>
+        # Newer elements will be put in front.
+        self.positions_buffer = []
+        
+        # Initialize all variables
+        self.reset()
+
+    def reset(self):
+        self.buffer_lookback = 0
+        self.hand_removed = False        
+        self.is_hand_stable = False
+        del self.positions_buffer[:]
+
+
+    def handRemoved(self):
+        return self.hand_removed
+    
+
+    def isHandStable(self, time, threshold):    
+        #
+        # Look back in the buffer to see if the hand is "stable".
+        # It means that the varianve of the position is smaller than a given fraction of its average
+        stability_slots = self.slotsWithinTime(time)
+        x,y,z, dx,dy,dz = self.getPosAvgAndDeviation(0,stability_slots)
+        avg = mathutils.Vector((x,y,z))
+        dev = mathutils.Vector((dx,dy,dz))
+        #print("stability_slots="+str(stability_slots)+"\tavg="+str(avg)+"\tdev="+str(dev)+"\tdevlen="+str(dev.length))
+        if(dev.length<threshold):
+            return True
+        else:
+            return False
+     
+
+    def update(self, hand):
+        t = time.time()
+        
+        #
+        # Store hand positions
+        p = hand["palmPosition"]
+        #print(str(p.__class__))
+        
+        self.positions_buffer.insert( 0, (t,p) )
+        
+        # Delete old data
+        while(len(self.positions_buffer) > 0):
+            # time of the last element
+            insert_time = self.positions_buffer[len(self.positions_buffer)-1][0]
+            age = t - insert_time
+            if(age > self.BUFFER_MAX_AGE_SECS):
+                self.positions_buffer.pop()
+                #print("rage "+str(age), end="")
+            else:
+                break
+                
+        #
+        # Calc average speed
+        self.buffer_lookback += 1
+        self.buffer_lookback = min(self.buffer_lookback, len(self.positions_buffer))
+        
+        sx,sy,sz = self.getAverageSpeedSlots(self.buffer_lookback-1)
+        speed_vect = mathutils.Vector((sx,sy,sz))
+        self.hand_speed = speed_vect.length
+        
+        if(self.hand_speed>self.max_speed):
+            self.max_speed = self.hand_speed
+            print("New max speed found="+str(self.max_speed))
+
+
+        #lt_x, lt_y, lt_z = self.getLatestSpeed()
+        lt_x, lt_y, lt_z = self.getAverageSpeedSlots(min(3,self.buffer_lookback-1))
+        latest_speed = mathutils.Vector((lt_x,lt_y,lt_z))
+        if(latest_speed.length>self.HAND_MAX_SPEED):
+            self.hand_removed = True
+        else:
+            self.hand_removed = False
+        
+        # liner
+        #lookback_time = 0.02 + self.BUFFER_MAX_AGE_SECS + (speed * (-self.BUFFER_MAX_AGE_SECS / self.HAND_MAX_SPEED))
+        # logaritmic        
+        lookback_time = self.BUFFER_MAX_AGE_SECS + self.BUFFER_MAX_AGE_SECS * (-math.log(self.hand_speed+1) / math.log(self.HAND_MAX_SPEED))
+        # clamp to a minimum with sense
+        lookback_time = max(lookback_time, 0.02)    
+        lookback_slots = self.slotsWithinTime(lookback_time)
+        
+        # choose the minimum among the counter and the required lookback
+        self.buffer_lookback = min(lookback_slots, self.buffer_lookback)
+
+        #print("handspeed="+str(self.hand_speed)+"\tBufsize="+str(len(self.positions_buffer))+"\tLookbak Slots="+str(lookback_slots)+"\tbuffer_lookback="+str(self.buffer_lookback))
+        
+
+       
+
+    def slotsWithinTime(self, time_range):
+        n = 0
+        latest_t = None
+        for t,p in self.positions_buffer: # array indices in reverse order
+            if(latest_t == None): latest_t = t
+            elapsed_t = latest_t - t
+            if(elapsed_t > time_range):
+                break
+            n += 1
+        
+        return n
+
+    
+    def handAge(self):
+        """Returns a float, secs, of how long the hand has been active in the buffer.
+        Technically the difference between the first and the last time slots."""
+        
+        age = 0
+        if(len(self.positions_buffer)>=2):
+            oldest = self.positions_buffer[len(self.positions_buffer)-1]
+            latest = self.positions_buffer[0]
+            age = latest[0] - oldest[0]
+        
+        return age
+
+
+    def handFastMovement(self, min_speed, lookback_time):
+        lookback_slots = self.slotsWithinTime(lookback_time)
+        lt_x, lt_y, lt_z = self.getAverageSpeedSlots(lookback_slots)
+        latest_speed = mathutils.Vector((lt_x,lt_y,lt_z))
+        if(latest_speed.length > min_speed):
+            return True
+        else:
+            return False
+
+
+    def getPositionAverage(self):
+        """Returns a tuple x,y,z with the average position over the whole buffer."""
+        n = 0
+        avg_x = 0
+        avg_y = 0
+        avg_z = 0
+        for t,p in self.positions_buffer:
+            n += 1
+            avg_x = avg_x + ( (p[0] - avg_x) / n )
+            avg_y = avg_y + ( (p[1] - avg_y) / n )
+            avg_z = avg_z + ( (p[2] - avg_z) / n )
+
+        #print("avg="+str(avg_x) + "\t" + str(avg_y) + "\t" + str(avg_z))
+        return avg_x, avg_y, avg_z
+
+
+    def getPositionAverageInRange(self, t1, t2):
+        """Returns a tuple x,y,z with the average position over the specified time range, with t1<t2."""
+        n = 0
+        avg_x = 0
+        avg_y = 0
+        avg_z = 0
+        latest_t = None
+        for t,p in self.positions_buffer: # array indices in reverse order
+            n += 1
+            if(latest_t == None): latest_t = t
+            elapsed_t = latest_t - t
+            if(elapsed_t<t1):
+                continue
+            if(elapsed_t>t2):
+                break
+            #print("Addng " + str(t)+" : " + str(p))
+           
+            avg_x = avg_x + ( (p[0] - avg_x) / n )
+            avg_y = avg_y + ( (p[1] - avg_y) / n )
+            avg_z = avg_z + ( (p[2] - avg_z) / n )
+
+        #print("avg="+str(avg_x) + "\t" + str(avg_y) + "\t" + str(avg_z))
+        return avg_x, avg_y, avg_z
+
+
+    def getPositionAverageInSlotsRange(self, i1, i2):
+        """Returns a tuple x,y,z with the average position over the specified time range, with i1<i2."""
+        n = 0
+        avg_x = 0
+        avg_y = 0
+        avg_z = 0
+        latest_t = None
+        for i in range(i1, i2): # array indices in reverse order
+            n += 1
+            t,p = self.positions_buffer[i]
+            if(latest_t == None): latest_t = t
+            elapsed_t = latest_t - t
+            #print("Addng " + str(t)+" : " + str(p))
+           
+            avg_x = avg_x + ( (p[0] - avg_x) / n )
+            avg_y = avg_y + ( (p[1] - avg_y) / n )
+            avg_z = avg_z + ( (p[2] - avg_z) / n )
+
+        #print("avg="+str(avg_x) + "\t" + str(avg_y) + "\t" + str(avg_z))
+        return avg_x, avg_y, avg_z
+
+    def getPosAvgAndDeviation(self, i1, i2):
+        """Compute the average and eviation of the speed in the specified range.
+        Returns the 6-tuple avg_x, avg_y, avg_z, dev_x, dev_y, dev_z."""
+        #The standard deviation of a random variable, statistical population, data set, or probability distribution is the square root of its variance
+        #http://www.stat.wisc.edu/~larget/math496/mean-var.html
+        # m_k = m_{k-1} + (x_k - m_{k-1}) / k
+        # s_k = s_{k-1} + (x_k - m_{k-1}) * (x_k - m_k)
+
+        n = 0
+        avg_x = 0
+        avg_y = 0
+        avg_z = 0
+        dev_x = 0
+        dev_y = 0
+        dev_z = 0
+        
+        latest_t = None
+        for i in range(i1, i2): # array indices in reverse order
+            n += 1
+            t,p = self.positions_buffer[i]
+            if(latest_t == None): latest_t = t
+            elapsed_t = latest_t - t
+            #print("Addng " + str(t)+" : " + str(p))
+           
+            navg_x = avg_x + ( (p[0] - avg_x) / n )
+            navg_y = avg_y + ( (p[1] - avg_y) / n )
+            navg_z = avg_z + ( (p[2] - avg_z) / n )
+
+            dev_x = dev_x + (p[0] - avg_x) * (p[0] - navg_x)
+            dev_y = dev_y + (p[1] - avg_y) * (p[1] - navg_y)
+            dev_z = dev_z + (p[2] - avg_z) * (p[2] - navg_z)
+
+            avg_x = navg_x
+            avg_y = navg_y
+            avg_z = navg_z
+    
+        dev_x = math.sqrt(dev_x)
+        dev_y = math.sqrt(dev_y)
+        dev_z = math.sqrt(dev_z)
+    
+        #print("avg="+str(avg_x) + "\t" + str(avg_y) + "\t" + str(avg_z))
+        return avg_x, avg_y, avg_z, dev_x, dev_y, dev_z
+
+
+
+    def getAverageSpeed(self, time_window_secs):
+        """Returns the average speed of the last samples, looking back for at maximum the provided amount if seconds.
+        Returns a 3-tuple with the three components sx,sy,sz."""
+        
+        #
+        # Calc the sped of the last limited time slot
+        n = 0
+        avg_sx = 0
+        avg_sy = 0
+        avg_sz = 0
+        latest_t = None
+        for i in range(0, len(self.positions_buffer)-1): # array indices in reverse order
+            t1,p1 = self.positions_buffer[i] # more recent
+            t2,p2 = self.positions_buffer[i+1] # previous one
+            if(latest_t == None): latest_t = t1
+            elapsed_t = latest_t - t2
+            if(elapsed_t>time_window_secs):
+                break;
+            dt = t1-t2
+            n += 1
+            sx = (p1[0] - p2[0]) / dt
+            sy = (p1[1] - p2[1]) / dt
+            sz = (p1[2] - p2[2]) / dt
+            
+            avg_sx = avg_sx + ( (sx - avg_sx) / n )
+            avg_sy = avg_sy + ( (sy - avg_sy) / n )
+            avg_sz = avg_sz + ( (sz - avg_sz) / n )
+
+        #print("avg_speed="+str(avg_sx) + "\t" + str(avg_sy) + "\t" + str(avg_sz)+"\ton "+str(n)+" samples")
+        return avg_sx, avg_sy, avg_sz
+
+
+    def getAverageSpeedSlots(self, slots):
+        """Returns the average speed of the last samples, looking back for at maximum the provided amount if seconds.
+        Returns a 3-tuple with the three components sx,sy,sz."""
+
+        slots = min(slots, len(self.positions_buffer) -1)
+
+        if(slots < 2):
+            return 0.0,0.0,0.0
+        
+        #
+        # Calc the sped of the last limited time slot
+        n = 0
+        avg_sx = 0
+        avg_sy = 0
+        avg_sz = 0
+        for i in range(0, slots): # array indices in reverse order
+            t1,p1 = self.positions_buffer[i] # more recent
+            t2,p2 = self.positions_buffer[i+1] # previous one
+            dt = t1-t2
+            n += 1
+            sx = (p1[0] - p2[0]) / dt
+            sy = (p1[1] - p2[1]) / dt
+            sz = (p1[2] - p2[2]) / dt
+            
+            avg_sx = avg_sx + ( (sx - avg_sx) / n )
+            avg_sy = avg_sy + ( (sy - avg_sy) / n )
+            avg_sz = avg_sz + ( (sz - avg_sz) / n )
+
+        #print("avg_speed="+str(avg_sx) + "\t" + str(avg_sy) + "\t" + str(avg_sz)+"\ton "+str(n)+" samples")
+        return avg_sx, avg_sy, avg_sz
+
+
+
+    def getLatestSpeed(self):
+        """Returns the speed easuring the last two samples.
+        Returns a 3-tuple with the three components sx,sy,sz."""
+        
+        N = len(self.positions_buffer)
+        
+        if(N<2):
+            return (0.0,0.0,0.0)
+        #
+        # Calc the speed of the last limited time slot
+        t1,p1 = self.positions_buffer[0] # more recent
+        t2,p2 = self.positions_buffer[1] # previous one
+        dt = t1-t2
+        sx = (p1[0] - p2[0]) / dt
+        sy = (p1[1] - p2[1]) / dt
+        sz = (p1[2] - p2[2]) / dt
+            
+        #print("avg_speed="+str(avg_sx) + "\t" + str(avg_sy) + "\t" + str(avg_sz)+"\ton "+str(n)+" samples")
+        return sx, sy, sz
+
+
+
+    def getSpeedModulatedPositionAverage(self):
+        """Returns the average position of the hand considering only a recent temporal window.
+        The window time size depends on the speed of the last movement.
+        """
+            
+        return self.getPositionAverageInSlotsRange(0, self.buffer_lookback)
+
+    def getStablePosition(self):
+        print("Computing stable position for buffer range "+ str(self.buffer_lookback) + " - " + str(len(self.positions_buffer)))
+        return self.getPositionAverageInSlotsRange(self.buffer_lookback, len(self.positions_buffer))
+
+
+    # Tmovement ----------> Tchange ----------> T0
+    def suddenChange(self, change_lookback, movement_lookback):
+        if(len(self.positions_buffer) < 2):
+            return False
+        
+        start_slot = self.slotsWithinTime(movement_lookback)
+        change_slot = self.slotsWithinTime(change_lookback)
+        
+        now_pos = mathutils.Vector(self.positions_buffer[0][1])
+        start_pos = mathutils.Vector(self.positions_buffer[start_slot-1][1])
+        change_pos = mathutils.Vector(self.positions_buffer[change_slot-1][1])
+        
+        movement_vect = change_pos - start_pos
+        change_vect = now_pos - change_pos
+        
+        prod = movement_vect.dot(change_vect)
+        
+        return prod < 0
+
+    # Tmovement ----------> Tchange ----------> T0
+    def changeOfDirection(self, change_lookback, movement_lookback, min_back_speed):
+        change_lookback_slots = self.slotsWithinTime(change_lookback)
+        movement_lookback_slots = self.slotsWithinTime(movement_lookback)
+        speed = mathutils.Vector(self.getAverageSpeedSlots(change_lookback_slots))
+        sudden_change = self.suddenChange(change_lookback=change_lookback, movement_lookback=movement_lookback)
+
+        #print("speed="+str(speed.length)+"\tchange="+str(sudden_change))
+        
+        return (speed.length > min_back_speed) and sudden_change
+
