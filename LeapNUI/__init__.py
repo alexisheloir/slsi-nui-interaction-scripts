@@ -35,6 +35,7 @@ from . import FunctionSelectionKeymaps
 from . import BodySelectionKeymaps
 from . import HandShapeSelector
 from . import KeyboardlessActivation
+from . import Icons
 
 import bpy
 

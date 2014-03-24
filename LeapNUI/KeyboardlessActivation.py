@@ -31,6 +31,7 @@ from LeapNUI.LeapReceiver import LeapReceiver
 from LeapNUI.LeapReceiver import HandSelector
 from LeapNUI.LeapReceiver import HandMotionAnalyzer
 from LeapNUI.LeapModalController import LeapModal
+from LeapNUI import Icons
 
 
 
@@ -481,11 +482,16 @@ class KeyboardlessControlSwitch(bpy.types.Operator):
     _leap_modal_listener = None
 
 
+    REDRAW_MAX_DELAY = 0.1
+    last_redraw = 0
+
+
     def invoke(self, context, event):
         return self.execute(context)
 
     def execute(self, context):
         print(str(self.__class__)+ " invoked on area type " + context.area.type)
+
 
         if (context.window_manager.leap_nui_keyboardless_active == False):
             #
@@ -504,6 +510,7 @@ class KeyboardlessControlSwitch(bpy.types.Operator):
             KeyboardlessControlSwitch._terminate = False
 
             context.window_manager.leap_nui_keyboardless_active = True
+
             return {'RUNNING_MODAL'}
 
         else:
@@ -521,6 +528,15 @@ class KeyboardlessControlSwitch(bpy.types.Operator):
 #            +"\t"+str(LeapDaemonSwitch._terminate))
         if(not event.type == 'TIMER'):
             return {'PASS_THROUGH'}
+
+        if(context.area):
+            now = time.time()
+            redraw_age = now - self.last_redraw
+            if(redraw_age > KeyboardlessControlSwitch.REDRAW_MAX_DELAY):
+                #print("Force redraw")
+                context.area.tag_redraw()
+                self.last_redraw = now
+
 
         
         if(context.window_manager.leap_nui_keyboardless_active == False):
@@ -584,32 +600,32 @@ def draw_callback_px(self, context):
         pass
 
 
-    if(wm.leap_info.leap_logic.isTracking()):
-        bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
+    # if(wm.leap_info.leap_logic.isTracking()):
+    #     bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
 
-        # transparence
-        bgl.glEnable(bgl.GL_BLEND)
-        bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
+    #     # transparence
+    #     bgl.glEnable(bgl.GL_BLEND)
+    #     bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
         
-        msg = "GRABBING!"
-        font_size = 48
+    #     msg = "GRABBING!"
+    #     font_size = 48
      
-        blf.size(0, font_size, 72)
-        bgl.glColor4f(r, g, b, 0.7)
-        blf.blur(0, 1)
-        # shadow?
-        blf.enable(0, blf.SHADOW)
-        blf.shadow_offset(0, 1, -1)
-        blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)
+    #     blf.size(0, font_size, 72)
+    #     bgl.glColor4f(r, g, b, 0.7)
+    #     blf.blur(0, 1)
+    #     # shadow?
+    #     blf.enable(0, blf.SHADOW)
+    #     blf.shadow_offset(0, 1, -1)
+    #     blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)
 
-        item_w,item_h = blf.dimensions(0, msg)
-        pos_x = (context.region.width - item_w) / 2
-        pos_y = 0
+    #     item_w,item_h = blf.dimensions(0, msg)
+    #     pos_x = (context.region.width - item_w) / 2
+    #     pos_y = 0
         
-        blf.position(0, pos_x, pos_y, 0)    
-        blf.draw(0, msg)
+    #     blf.position(0, pos_x, pos_y, 0)    
+    #     blf.draw(0, msg)
         
-        bgl.glPopClientAttrib()
+    #     bgl.glPopClientAttrib()
 
     #
     # Draw the LeapInfo log messages
@@ -634,9 +650,19 @@ def draw_callback_px(self, context):
 
     #
     # Draw icon if the hand is visible to the Leap
-    if(wm.leap_info.leap_receiver.getHandId() != None):
-        # TODO -- show if hand is tracked
+    if(wm.leap_info.leap_listener.getHandId() == None):     # NO HAND
         pass
+    else:
+        pos_x = context.region.width - (Icons.ICON_SIZE * 1.5)
+        pos_y = (Icons.ICON_SIZE / 2)
+
+        if(wm.leap_info.leap_logic.isTracking()):           # GREEN HAND
+            Icons.drawIcon("5-spreadfingers-icon-green.png", pos_x, pos_y)
+            pass
+        else:                                               # RED HAND
+            Icons.drawIcon("5-spreadfingers-icon-red.png", pos_x, pos_y)
+            pass
+
 
 #
 #
