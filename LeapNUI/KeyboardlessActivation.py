@@ -31,6 +31,7 @@ from LeapNUI.LeapReceiver import LeapReceiver
 from LeapNUI.LeapReceiver import HandSelector
 from LeapNUI.LeapReceiver import HandMotionAnalyzer
 from LeapNUI.LeapModalController import LeapModal
+from LeapNUI import Icons
 
 
 
@@ -190,6 +191,7 @@ class LeapDictListener:
                     ):
                     #print(str(self.hand_motion_analyzer.handAge()) + " ... ")
                     leap_logic.setTracking(True)
+                    li.logMessage("ON Hand Stable")
                     print("Tracking ACTIVATED")
                     
                     self.tracking_start = time.time()
@@ -250,6 +252,7 @@ class KeyboardLessLogicModalListener:
             reason = "Unknown"
             if(hand_id == None): reason = "lost"
             elif(leap_logic.hand_changed) : reason = "changed"
+            li.logMessage("OFF Hand " + reason)
             print("Tracking DEACTIVATED (hand " + reason + ")")
             return {'FINISHED'}
 
@@ -273,6 +276,7 @@ class KeyboardLessLogicModalListener:
                 self.tracking_start = None
                 li.leap_listener.resetHandId()
                 leap_logic.last_drop_pos = None
+                li.logMessage("OFF Fast Movement")
                 print("Tracking DEACTIVATED (Hand fast movement)")
                 return {'FINISHED'}
 
@@ -289,6 +293,7 @@ class KeyboardLessLogicModalListener:
                 self.tracking_start = None
                 li.leap_listener.resetHandId()
                 leap_logic.last_drop_pos = None
+                li.logMessage("OFF Change of Direction")
                 print("Tracking DEACTIVATED (Change of direction)")
                 return {'FINISHED'}
 
@@ -305,6 +310,7 @@ class KeyboardLessLogicModalListener:
                 li.leap_listener.resetHandId()
                 leap_logic.last_drop_pos = mathutils.Vector(hand["palmPosition"])
                 li.leap_listener.hand_motion_analyzer.reset()
+                li.logMessage("OFF Hand Stable")
                 print("Tracking DEACTIVATED (Hand stable)")
                 return {'FINISHED'}
 
@@ -320,6 +326,7 @@ class KeyboardLessLogicModalListener:
                 li.leap_listener.resetHandId()
                 leap_logic.last_drop_pos = mathutils.Vector(hand["palmPosition"])
                 #op.hand_motion_analyzer.reset()
+                li.logMessage("Fingers Opened")
                 print("Tracking DEACTIVATED (Fingers opened)")
                 return {'FINISHED'}
                 
@@ -336,13 +343,19 @@ class KeyboardLessLogicModalListener:
 class LeapInfo:
     """Support class to collect global shared data: the receiver thread, and the listener taking care of new incoming leap dictionaries.
     """
-        
+
+    MAX_LOG_MESSAGES = 10
+    LOG_MESSAGE_MAX_LIFE_SECS = 3
+
     def __init__(self):
         self.leap_receiver = None
         self.leap_listener = None
         self.leap_logic = None
         
         self.dict_last_id = -1
+
+        self.log_messages = []
+
         
     def start(self):
         self.leap_receiver = LeapReceiver.getSingleton()
@@ -371,6 +384,17 @@ class LeapInfo:
             self.dict_last_id = new_id
 
             self.leap_listener.newDictReceived(leap_dict)
+            
+        # update log list
+        now = time.time()
+        if(len(self.log_messages) > 0):
+            ins_time, msg = self.log_messages[0]  # insertion time of the oldest message
+            msg_age = now - ins_time
+            if(msg_age > self.LOG_MESSAGE_MAX_LIFE_SECS):
+                self.log_messages.pop(0)
+                if(bpy.context.area):
+                    bpy.context.area.tag_redraw()
+
 
         
     def stop(self):
@@ -379,6 +403,10 @@ class LeapInfo:
             self.leap_receiver = None
 
 
+    def logMessage(self, msg):
+        while(len(self.log_messages) > LeapInfo.MAX_LOG_MESSAGES):
+            self.log_messages.pop(0)
+        self.log_messages.append((time.time(),msg))
 
 #
 #
@@ -454,11 +482,16 @@ class KeyboardlessControlSwitch(bpy.types.Operator):
     _leap_modal_listener = None
 
 
+    REDRAW_MAX_DELAY = 0.1
+    last_redraw = 0
+
+
     def invoke(self, context, event):
         return self.execute(context)
 
     def execute(self, context):
         print(str(self.__class__)+ " invoked on area type " + context.area.type)
+
 
         if (context.window_manager.leap_nui_keyboardless_active == False):
             #
@@ -477,6 +510,7 @@ class KeyboardlessControlSwitch(bpy.types.Operator):
             KeyboardlessControlSwitch._terminate = False
 
             context.window_manager.leap_nui_keyboardless_active = True
+
             return {'RUNNING_MODAL'}
 
         else:
@@ -494,6 +528,15 @@ class KeyboardlessControlSwitch(bpy.types.Operator):
 #            +"\t"+str(LeapDaemonSwitch._terminate))
         if(not event.type == 'TIMER'):
             return {'PASS_THROUGH'}
+
+        if(context.area):
+            now = time.time()
+            redraw_age = now - self.last_redraw
+            if(redraw_age > KeyboardlessControlSwitch.REDRAW_MAX_DELAY):
+                #print("Force redraw")
+                context.area.tag_redraw()
+                self.last_redraw = now
+
 
         
         if(context.window_manager.leap_nui_keyboardless_active == False):
@@ -556,32 +599,70 @@ def draw_callback_px(self, context):
         #print("Draw Callback False")
         pass
 
-    if(wm.leap_info.leap_logic.isTracking()):
-        bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
 
-        # transparence
-        bgl.glEnable(bgl.GL_BLEND)
-        bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
+    # if(wm.leap_info.leap_logic.isTracking()):
+    #     bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
+
+    #     # transparence
+    #     bgl.glEnable(bgl.GL_BLEND)
+    #     bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
         
-        msg = "GRABBING!"
-        font_size = 48
+    #     msg = "GRABBING!"
+    #     font_size = 48
      
-        blf.size(0, font_size, 72)
-        bgl.glColor4f(r, g, b, 0.7)
-        blf.blur(0, 1)
-        # shadow?
-        blf.enable(0, blf.SHADOW)
-        blf.shadow_offset(0, 1, -1)
-        blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)
+    #     blf.size(0, font_size, 72)
+    #     bgl.glColor4f(r, g, b, 0.7)
+    #     blf.blur(0, 1)
+    #     # shadow?
+    #     blf.enable(0, blf.SHADOW)
+    #     blf.shadow_offset(0, 1, -1)
+    #     blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)
 
-        item_w,item_h = blf.dimensions(0, msg)
-        pos_x = (context.region.width - item_w) / 2
-        pos_y = 0
+    #     item_w,item_h = blf.dimensions(0, msg)
+    #     pos_x = (context.region.width - item_w) / 2
+    #     pos_y = 0
         
+    #     blf.position(0, pos_x, pos_y, 0)    
+    #     blf.draw(0, msg)
+        
+    #     bgl.glPopClientAttrib()
+
+    #
+    # Draw the LeapInfo log messages
+    font_size = 24
+    messages = wm.leap_info.log_messages
+    n_messages = len(messages)
+    log_y_size = LeapInfo.MAX_LOG_MESSAGES * font_size
+    #pos_y = context.region.height - ((context.region.height - log_y_size) / 2)
+    pos_y = ((context.region.height - log_y_size) / 2)
+    pos_x = 0
+    bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
+    blf.size(0, font_size, 72)
+    bgl.glColor4f(r, g, b, 0.7)
+
+    for time,msg in reversed(messages):
         blf.position(0, pos_x, pos_y, 0)    
         blf.draw(0, msg)
-        
-        bgl.glPopClientAttrib()
+        pos_y += font_size
+
+    bgl.glPopClientAttrib()
+
+
+    #
+    # Draw icon if the hand is visible to the Leap
+    if(wm.leap_info.leap_listener.getHandId() == None):     # NO HAND
+        pass
+    else:
+        pos_x = context.region.width - (Icons.ICON_SIZE * 1.5)
+        pos_y = (Icons.ICON_SIZE / 2)
+
+        if(wm.leap_info.leap_logic.isTracking()):           # GREEN HAND
+            Icons.drawIcon("5-spreadfingers-icon-green.png", pos_x, pos_y)
+            pass
+        else:                                               # RED HAND
+            Icons.drawIcon("5-spreadfingers-icon-red.png", pos_x, pos_y)
+            pass
+
 
 #
 #
