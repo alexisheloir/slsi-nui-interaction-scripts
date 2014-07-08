@@ -91,9 +91,11 @@ class LoggerOn(bpy.types.Operator):
     bl_label = "Switch key logger on (if not already)"
     bl_description = "log all events into an internal text buffer"
     
-    useInternalBuffer = BoolProperty(name="Write to internal buffer", description="If true, the log will be written as well in an internal Text buffer. A new text buffer will be created at each logging activity start.", default=False)
-
     logActiveObjectTransform = BoolProperty(name="Log loc/rot/scale of the active object", description="If true, the log will include a sampling of the current active object location x y z, rotation_quaternion w x y z and scale x y z.", default=False)
+    useInternalBuffer = BoolProperty(name="Write to internal buffer", description="If true, the log will be written as well in an internal Text buffer. A new text buffer will be created at each logging activity start.", default=False)
+    logOnConsole = BoolProperty(name="Write to the standard output", description="If true, the log will be printed on the standard output (using a simple print).", default=True)
+    logOnFile = BoolProperty(name="Write the log to file", description="If true, write the log to a file.", default=False)
+    logDirname = StringProperty(name="Write the log to the specified directory", description="If empty string, the directory is automatically determined.", default="")
 
     def invoke(self, context, event):
         return self.execute(context)
@@ -102,7 +104,7 @@ class LoggerOn(bpy.types.Operator):
         print("Invoked LoggerOn")
 
         if context.window_manager.logging is False:
-            bpy.ops.view3d.logger_switch(useInternalBuffer=self.useInternalBuffer, logActiveObjectTransform=self.logActiveObjectTransform)
+            bpy.ops.view3d.logger_switch(useInternalBuffer=self.useInternalBuffer, logActiveObjectTransform=self.logActiveObjectTransform, logOnConsole=self.logOnConsole, logOnFile=self.logOnFile, logDirname=self.logDirname)
 
         return {'FINISHED'}
 
@@ -158,12 +160,22 @@ class SwitchLoggerStatus(bpy.types.Operator):
     bl_label = "Switch key logger"
     bl_description = "log all events into an internal text buffer"
     
-    useInternalBuffer = BoolProperty(name="Write to internal buffer", description="If true, the log will be written as well in an internal Text buffer. A new text buffer will be created at each logging activity start.", default=False)
-    
     logActiveObjectTransform = BoolProperty(name="Log loc/rot/scale of the active object", description="If true, the log will include a sampling of the current active object location x y z, rotation_quaternion w x y z and scale x y z.", default=False)
+
+    useInternalBuffer = BoolProperty(name="Write to internal buffer", description="If true, the log will be written as well in an internal Text buffer. A new text buffer will be created at each logging activity start.", default=False)
+
+    logOnConsole = BoolProperty(name="Write to the standard output", description="If true, the log will be printed on the standard output (using a simple print).", default=True)
+
+    logOnFile = BoolProperty(name="Write the log to file", description="If true, write the log to a file.", default=False)
+    
+    logDirname = StringProperty(name="Write the log to the specified directory", description="If empty string, the directory is automatically determined.", default="")
+
 
     # Reference to a bpy.data.texts entry, where log is eventually written
     text_buffer = None
+
+    # The file instance where the log is eventually written
+    logfile = None
 
     _handle = None
     _timer = None
@@ -201,6 +213,20 @@ class SwitchLoggerStatus(bpy.types.Operator):
             if(self.useInternalBuffer):
                 buffer_name = "LOG-" + time.ctime()
                 self.text_buffer = bpy.data.texts.new(buffer_name)
+
+            if(self.logOnFile):
+                filename = "Blender-LOG-" + time.ctime() + ".txt"
+                if(self.logDirname!=""):                    
+                    filename = self.logDirname + "/" + filename
+
+                try:
+                    self.logfile = open(filename,'w')
+                except OSError as ex:
+                    msg = "Cannot open logfile '"+filename+"': "+str(ex)
+                    print(msg)
+                    self.report({'WARNING'}, msg)
+            else:
+                self.logfile = None
             
             SwitchLoggerStatus.s_active_instance = self
             
@@ -230,6 +256,11 @@ class SwitchLoggerStatus(bpy.types.Operator):
             SwitchLoggerStatus.handle_remove(context)
             if context.area:
                 context.area.tag_redraw()
+
+            if(self.logfile):
+                self.logfile.flush()
+                self.logfile.close()
+                self.logfile = None
                 
             SwitchLoggerStatus.s_active_instance = None
 
@@ -266,10 +297,12 @@ class SwitchLoggerStatus(bpy.types.Operator):
     def logEvent(self, event):
         """Print out the log prefix, the start/end marker, the key and the timestamp"""
         msg = LOG_PREFIX +"_EVENT "+ str(time.time()) +" "+ event.type +" "+ event.value 
-        print(msg)
+        if(self.logOnConsole):
+            print(msg)
         if(self.useInternalBuffer):
-            self.text_buffer.write(msg)
-            self.text_buffer.write("\n")
+            self.text_buffer.write(msg+"\n")
+        if(self.logfile):
+            self.logfile.write(msg+"\n")
 
     def logActiveObject(self, context):
         ao = context.active_object
@@ -279,20 +312,23 @@ class SwitchLoggerStatus(bpy.types.Operator):
             sx,sy,sz = ao.scale
             string_values = [str(x) for x in (lx,lz,lz,qw,qx,qy,qz,sx,sy,sz)]
             msg = LOG_PREFIX +"_ACTIVE_OBJ "+ str(time.time()) +" "+ ao.name +" "+ (" ".join(string_values))
-            print(msg)
+            if(self.logOnConsole):
+                print(msg)
             if(self.useInternalBuffer):
-                self.text_buffer.write(msg)
-                self.text_buffer.write("\n")
-
-
+                self.text_buffer.write(msg+"\n")
+            if(self.logfile):
+                self.logfile.write(msg+"\n")
 
     def log(self, msg):
         msg = LOG_PREFIX +"_CUSTOM "+ str(time.time()) +" "+ msg
-        print(msg)
+        if(self.logOnConsole):
+            print(msg)
         if(self.useInternalBuffer):
-            self.text_buffer.write(msg)
-            self.text_buffer.write("\n")
-        
+            self.text_buffer.write(msg+"\n")
+        if(self.logfile):
+            self.logfile.write(msg+"\n")
+
+
 
 # store keymaps here to access after registration
 addon_keymaps = []
