@@ -62,3 +62,6 @@ LeapNUI.register()
 
 import BlenderLogger
 BlenderLogger.register()
+
+import HeadCameraControl
+HeadCameraControl.register()

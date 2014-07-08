@@ -256,7 +256,7 @@ class SwitchLoggerStatus(bpy.types.Operator):
 
 
     def cancel(self, context):
-        if context.window_manager.logger:
+        if context.window_manager.logging:
             SwitchLoggerStatus.handle_remove(context)
             #context.window_manager.screencast_keys_keys = False
         return {'CANCELLED'}
