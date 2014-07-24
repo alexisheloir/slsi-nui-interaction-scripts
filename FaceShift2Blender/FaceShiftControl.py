@@ -59,6 +59,60 @@ UPDATE_DELAY = 0.04
 
 
 # These are the names of the FaceShift control channels
+# 48 channels
+# blend_shape_names = [
+#     "EyeBlink_L",
+#     "EyeBlink_R",
+#     "EyeSquint_L",
+#     "EyeSquint_R",
+#     "EyeDown_L",
+#     "EyeDown_R",
+#     "EyeIn_L",
+#     "EyeIn_R",
+#     "EyeOpen_L",
+#     "EyeOpen_R",
+#     "EyeOut_L",
+#     "EyeOut_R",
+#     "EyeUp_L",
+#     "EyeUp_R",
+#     "BrowsD_L",
+#     "BrowsD_R",
+#     "BrowsU_C",
+#     "BrowsU_L",
+#     "BrowsU_R",
+#     "JawFwd",
+#     "JawLeft",
+#     "JawOpen",
+#     "JawChew",
+#     "JawRight",
+#     "MouthLeft",
+#     "MouthRight",
+#     "MouthFrown_L",
+#     "MouthFrown_R",
+#     "MouthSmile_L",
+#     "MouthSmile_R",
+#     "MouthDimple_L",
+#     "MouthDimple_R",
+#     "LipsStretch_L",
+#     "LipsStretch_R",
+#     "LipsUpperClose",
+#     "LipsLowerClose",
+#     "LipsUpperUp",
+#     "LipsLowerDown",
+#     "LipsUpperOpen",
+#     "LipsLowerOpen",
+#     "LipsFunnel",
+#     "LipsPucker",
+#     "ChinLowerRaise",
+#     "ChinUpperRaise",
+#     "Sneer",
+#     "Puff",
+#     "CheekSquint_L",
+#     "CheekSquint_R"]
+    
+
+# New names for v2014.1
+# 51 channels
 blend_shape_names = [
     "EyeBlink_L",
     "EyeBlink_R",
@@ -79,36 +133,42 @@ blend_shape_names = [
     "BrowsU_C",
     "BrowsU_L",
     "BrowsU_R",
-    "JawFwd",
-    "JawLeft",
     "JawOpen",
-    "JawChew",
+    "LipsTogether",
+    "JawLeft",
     "JawRight",
-    "MouthLeft",
-    "MouthRight",
-    "MouthFrown_L",
-    "MouthFrown_R",
+    "JawFwd",
+    "LipsUpperUp_L",
+    "LipsUpperUp_R",
+    "LipsLowerDown_L",
+    "LipsLowerDown_R",
+    "LipsUpperClose",
+    "LipsLowerClose",
     "MouthSmile_L",
     "MouthSmile_R",
     "MouthDimple_L",
     "MouthDimple_R",
     "LipsStretch_L",
     "LipsStretch_R",
-    "LipsUpperClose",
-    "LipsLowerClose",
-    "LipsUpperUp",
-    "LipsLowerDown",
-    "LipsUpperOpen",
-    "LipsLowerOpen",
-    "LipsFunnel",
+    "MouthFrown_L",
+    "MouthFrown_R",
+    "MouthPress_L",
+    "MouthPress_R",
     "LipsPucker",
+    "LipsFunnel",
+    "MouthLeft",
+    "MouthRight",
     "ChinLowerRaise",
     "ChinUpperRaise",
-    "Sneer",
+    "Sneer_L",
+    "Sneer_R",
     "Puff",
     "CheekSquint_L",
     "CheekSquint_R"]
-    
+
+    #"JawChew",
+    #"LipsUpperOpen",
+    #"LipsLowerOpen",
 
 # 20 Facial control rigs. Listed from top to bottom (arbitrary decision)
 # Don't change the order.
@@ -151,7 +211,7 @@ fs_to_mh_control_rig_vectors = {
     ,"EyeSquint_R": [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.25), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0) ]
     ,"EyeSquint_L":[ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.25), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0) ]
     ,"EyeDown_R" : [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.08), (0.0,0.0,0.20), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)  ]
-    ,"EyeDown_LR" : [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.08), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.20), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)  ]
+    ,"EyeDown_L" : [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.08), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.20), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)  ]
 #    "EyeIn_L",     # can't be done in MakeHuman rig
 #    "EyeIn_R",     # can't be done in MakeHuman rig
     ,"EyeOpen_R" :[ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.20), (0.0,0.0,0.13), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)]
@@ -209,6 +269,23 @@ fs_to_mh_control_rig_vectors = {
     ,"Puff" : [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.25,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.063,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.1,0.0,0.0), (-0.1,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.127,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)  ]
     ,"CheekSquint_R" : [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.11), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.11), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)  ]
     ,"CheekSquint_L" : [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.11), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.11), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)  ]
+
+    # extra duplicated mappings for 2014.1 channels
+    #No mapping for JawFwd
+    #No mapping for LipsUpperUp_L
+    ,"LipsUpperUp_L" : [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.10), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.25), (0.0,0.0,-0.05), (0.0,0.0,-0.05), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)  ]
+    #No mapping for LipsUpperUp_R
+    ,"LipsUpperUp_R" : [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.10), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.25), (0.0,0.0,-0.05), (0.0,0.0,-0.05), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)  ]
+    #No mapping for LipsLowerDown_L
+    ,"LipsLowerDown_L" : [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.05), (0.0,0.0,0.05), (0.0,0.0,0.25), (0.0,0.0,0.0), (0.0,0.0,0.0),  ]
+    #No mapping for LipsLowerDown_R
+    ,"LipsLowerDown_R" : [ (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.05), (0.0,0.0,0.05), (0.0,0.0,0.25), (0.0,0.0,0.0), (0.0,0.0,0.0),  ]
+    #No mapping for MouthPress_L
+    #No mapping for MouthPress_R
+    #No mapping for Sneer_L
+    ,"Sneer_L" : [ (0.0,0.0,0.11), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.15), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)  ]
+    #No mapping for Sneer_R
+    ,"Sneer_R" : [ (0.0,0.0,0.11), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,-0.15), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0), (0.0,0.0,0.0)  ]
 }
     
 
@@ -235,21 +312,22 @@ def FS2Rig_MappingDict(target_object, bs_names, bs_vals):
     for bs_name, bs_val in zip(bs_names, bs_vals):
         
         # Quick skip if the faceshift blendshape is not having influence
-        if(bs_val == 0):
-            continue
+        # No. If it is at 0, it means that we want to put the value of the blandshapes back to 0.
+        #if(bs_val == 0):
+        #    continue
         
         # Special case for Jaw bone rotation
         if(bs_name == "JawLeft"):
             jaw_rot_z += bs_val * 5    # 5 degrees is the max side jaw extension
+            continue
         elif(bs_name == "JawRight"):
             jaw_rot_z += bs_val * (-5)    # 5 degrees is the max side jaw extension
+            continue
         
         if( not bs_name in fs_to_mh_control_rig_vectors):
             #print("No mapping for " + bs_name)
             continue
         
-        #if(not (bs_name == "BrowsU_R" or bs_name == "BrowsD_R")):
-        #    continue
 
         # Take the list of displacement triplets for this blend shape. Remember that the list is composed of 3-sized sequences, not vectors.
         bs_disps = fs_to_mh_control_rig_vectors[bs_name]
