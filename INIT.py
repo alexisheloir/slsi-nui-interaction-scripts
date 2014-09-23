@@ -50,7 +50,9 @@ for f in FILES:
 if scene_dir not in sys.path:
     print("Appending '" + scene_dir + "' to system path")
     sys.path.append(scene_dir)
+    sys.path.append(scene_dir+"/3rdParty")
 
+#import websocket
 
 import MakeHumanTools
 MakeHumanTools.register()
@@ -65,3 +67,4 @@ BlenderLogger.register()
 
 import HeadCameraControl
 HeadCameraControl.register()
+
