@@ -19,6 +19,7 @@ import bpy
 from .LeapModalController import LeapModal
 
 
+
 TRANSLATION_SHORTCUT_CHAR = 'G'
 ROTATION_SHORTCUT_CHAR = 'R'
 TR_AND_ROT_SHORTCUT_CHAR = 'T'

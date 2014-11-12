@@ -26,7 +26,7 @@ from .BoneSet import *
 
 
 def getSelectedArmature(context):
-    """Returns the selected armature. Or None"""
+    """Returns the selected armature, or None."""
     
     arm = None
     
@@ -49,18 +49,10 @@ def mh_poll(cls, context):
     if(arm == None):
         return False
     
-    for c in MH_ARM_CONTROLLERS:
+    for c in MH_ALL_CONTROLLERS:
         if(not c in arm.pose.bones):
             return False
-    
-    for c in MH_FACIAL_CONTROLLERS:
-        if(not c in arm.pose.bones):
-            return False
-    
-    for c in MH_EXTRA_CONTROLLERS:
-        if(not c in arm.pose.bones):
-            return False
-    
+
     return True
 
 #
@@ -98,8 +90,8 @@ class MakeHumanResetArms(bpy.types.Operator):
             pb.rotation_quaternion = 1,0,0,0
         
         # Rework on the Elbows. We don't really like the 0,0,0 position.
-        arm.pose.bones["ElbowPT_R"].location = 0.7,-2.5,4
-        arm.pose.bones["ElbowPT_L"].location = -0.7,-2.5,4
+        #arm.pose.bones["ElbowPT_R"].location = 0.7,-2.5,4
+        #arm.pose.bones["ElbowPT_L"].location = -0.7,-2.5,4
         
         
         
@@ -139,19 +131,18 @@ class MakeHumanResetFacialRig(bpy.types.Operator):
             bones[ctrl].location.xyz = 0,0,0
         
         # Reset Jaw rotation
-        bones["Jaw"].rotation_mode = 'XYZ'
-        bones["Jaw"].rotation_euler.z = 0.0
+        bones[MH_CONTROLLER_JAW].rotation_mode = 'XYZ'
+        bones[MH_CONTROLLER_JAW].rotation_euler.z = 0.0
         
         # Reset head rotation
-        bones["Neck"].rotation_mode = 'QUATERNION'
-        bones["Neck"].rotation_quaternion = mathutils.Quaternion((1,0,0,0))
+        bones[MH_CONTROLLER_NECK].rotation_mode = 'QUATERNION'
+        bones[MH_CONTROLLER_NECK].rotation_quaternion = mathutils.Quaternion((1,0,0,0))
         
         # Reset Eyes rotation
-        bones["Gaze"].location = 0,0,0
+        bones[MH_CONTROLLER_GAZE].location = 0,0,0
         
         # Reset mouth retraction Expression Unit
-        mh_mouth_retraction_eu = "Mhsmouth_retraction"
-        bpy.data.objects[armature.name][mh_mouth_retraction_eu] = 0.0
+        bpy.data.objects[armature.name][MH_EU_MOUTH_RETRACTION] = 0.0
         
         
         return {'FINISHED'}
@@ -185,7 +176,7 @@ class MakeHumanResetBody(bpy.types.Operator):
         bones = bpy.data.objects[armature.name].pose.bones
         
         # Reset all controllers position
-        for ctrl in MH_BODY_CONTROLLERS:
+        for ctrl in MH_BODY_CONTROLLERS + MH_HEAD_CONTROLLERS:
             bones[ctrl].location.xyz = 0,0,0
             bones[ctrl].rotation_quaternion = mathutils.Quaternion((1,0,0,0))
         
@@ -223,12 +214,12 @@ class MakeHumanResetHands(bpy.types.Operator):
         # bpy.data.objects['Human1-mhxrig-expr-advspine'].pose.bones['Finger-2-1_L'].rotation_quaternion = 1,0,0,0
         bones = bpy.data.objects[armature.name].pose.bones
         if(self.right_hand):
-            for name in R_HAND_BONES:
+            for name in MH_HAND_BONES_R + MH_HAND_CONTROLLERS_R:
                 b = bones[name]
                 b.rotation_quaternion = 1,0,0,0
         
         if(self.left_hand):
-            for name in L_HAND_BONES:
+            for name in MH_HAND_BONES_L + MH_HAND_CONTROLLERS_L:
                 b = bones[name]
                 b.rotation_quaternion = 1,0,0,0
         
@@ -265,11 +256,11 @@ class MakeHumanSelectHandBones(bpy.types.Operator):
         # bpy.data.armatures['Human1-mhxrig-expr-advspine'].bones['Finger-2-1_L'].select = True
         bones = bpy.data.armatures[armature.name].bones
         if(self.right_hand):
-            for name in R_HAND_BONES:
+            for name in MH_HAND_BONES_R:
                 bones[name].select = True
         
         if(self.left_hand):
-            for name in L_HAND_BONES:
+            for name in MH_HAND_BONES_L:
                 bones[name].select = True
         
         return {'FINISHED'}
@@ -304,7 +295,7 @@ class MakeHumanSelectAllFCurves(bpy.types.Operator):
         for c in fcurves:
             print(c.data_path)
             
-            if(c.data_path == '["Mhsmouth_retraction"]'):
+            if(c.data_path == '["'+MH_EU_MOUTH_RETRACTION+'"]'):
                 c.select=True
                 continue
             
@@ -316,7 +307,7 @@ class MakeHumanSelectAllFCurves(bpy.types.Operator):
                 continue
             
             bone_name = res.group(1)
-            if(bone_name in MH_ARM_CONTROLLERS or bone_name in MH_FACIAL_CONTROLLERS or bone_name in MH_EXTRA_CONTROLLERS):
+            if(bone_name in MH_ALL_CONTROLLERS ):
                 c.select = True
             else:
                 c.select = False
@@ -353,7 +344,7 @@ class MakeHumanSelectAllPoseBones(bpy.types.Operator):
 
 
         # Now select all by name
-        for name in (MH_ARM_CONTROLLERS + MH_FACIAL_CONTROLLERS + MH_EXTRA_CONTROLLERS + MH_BODY_CONTROLLERS + R_HAND_BONES + L_HAND_BONES):
+        for name in (MH_ALL_CONTROLLERS + MH_HAND_BONES):
             bone = arm.pose.bones[name]
             bone.bone.select = True
 
@@ -403,16 +394,16 @@ class MakeHumanInsertKeyframe(bpy.types.Operator):
             bones[ctrl].keyframe_insert(data_path='location', frame=frame)
         
         # Reset Jaw rotation
-        bones["Jaw"].keyframe_insert(data_path='rotation_euler', frame=frame)
+        bones[MH_CONTROLLER_JAW].keyframe_insert(data_path='rotation_euler', frame=frame)
         
         # Reset head rotation
-        bones["Neck"].keyframe_insert(data_path='rotation_quaternion', frame=frame)
+        bones[MH_CONTROLLER_NECK].keyframe_insert(data_path='rotation_quaternion', frame=frame)
         
         # Reset Eyes rotation
-        bones["Gaze"].keyframe_insert(data_path='location', frame=frame)
+        bones[MH_CONTROLLER_GAZE].keyframe_insert(data_path='location', frame=frame)
         
         # Reset mouth retraction Expression Unit
-        bpy.data.objects[armature.name].keyframe_insert(data_path='["Mhsmouth_retraction"]', frame=frame)
+        bpy.data.objects[armature.name].keyframe_insert(data_path='["'+MH_EU_MOUTH_RETRACTION+'"]', frame=frame)
         
         
         #
@@ -422,7 +413,7 @@ class MakeHumanInsertKeyframe(bpy.types.Operator):
         
         #
         # reset HANDS
-        for name in (R_HAND_BONES + L_HAND_BONES):
+        for name in (MH_HAND_BONES):
             bones[name].keyframe_insert(data_path="rotation_quaternion", frame=frame)
         
         
@@ -474,16 +465,16 @@ class MakeHumanDeleteKeyframe(bpy.types.Operator):
             bones[ctrl].keyframe_delete(data_path='location', frame=frame)
         
         # Reset Jaw rotation
-        bones["Jaw"].keyframe_delete(data_path='rotation_euler', frame=frame)
+        bones[MH_CONTROLLER_JAW].keyframe_delete(data_path='rotation_euler', frame=frame)
 
         # Reset head rotation
-        bones["Neck"].keyframe_delete(data_path='rotation_quaternion', frame=frame)
+        bones[MH_CONTROLLER_NECK].keyframe_delete(data_path='rotation_quaternion', frame=frame)
         
         # Reset Eyes rotation
-        bones["Gaze"].keyframe_delete(data_path='location', frame=frame)
+        bones[MH_CONTROLLER_GAZE].keyframe_delete(data_path='location', frame=frame)
         
         # Reset mouth retraction Expression Unit
-        bpy.data.objects[armature.name].keyframe_delete(data_path='["Mhsmouth_retraction"]', frame=frame)
+        bpy.data.objects[armature.name].keyframe_delete(data_path='["'+MH_EU_MOUTH_RETRACTION+'"]', frame=frame)
 
 
         #
@@ -493,7 +484,7 @@ class MakeHumanDeleteKeyframe(bpy.types.Operator):
 
         #
         # reset HANDS
-        for name in (R_HAND_BONES + L_HAND_BONES):
+        for name in (MH_HAND_BONES):
             bones[name].keyframe_delete(data_path="rotation_quaternion", frame=frame)
 
 

@@ -31,7 +31,9 @@ FILES = [
 	"SimplifyMultipleFCurves/SimplifyMultipleFCurves.py",
 	"TrimFCurves/TrimFCurves.py",
     "FaceShift2Blender/FaceShiftControl.py",
-    "Scripts/DemoTools.py"
+    "Scripts/DemoTools.py",
+    #"Script/ColorTargets.py",
+    #"Script/ExperimentTools.py"
 ]
 
 # Compose filename
@@ -67,4 +69,5 @@ BlenderLogger.register()
 
 import HeadCameraControl
 HeadCameraControl.register()
+
 

@@ -56,9 +56,10 @@ class LeapNUIControlPanel(bpy.types.Panel):
         else:
             target = "ON"
         self.layout.operator(operator="wm.leap_nui_keyboardless_control_switch", text="Turn "+target+" Keyboardless Control")
+        self.layout.prop(data=bpy.context.window_manager, property="leap_keyboardless_grab_mode")
+        self.layout.prop(data=bpy.context.window_manager, property="leap_keyboardless_grasp_operation")
 
-                         
-                         
+
 def toggleBodySelectionKeymaps(self, context):
     if(bpy.context.window_manager.leap_nui_body_selection_active==True):
         BodySelectionKeymaps.register()

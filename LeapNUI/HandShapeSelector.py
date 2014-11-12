@@ -31,8 +31,8 @@ import re
 from LeapNUI.LeapReceiver import LeapReceiver
 from LeapNUI.LeapReceiver import PointableSelector
 
-from MakeHumanTools.BoneSet import L_HAND_BONES
-from MakeHumanTools.BoneSet import R_HAND_BONES
+from MakeHumanTools.BoneSet import MH_HAND_BONES_L
+from MakeHumanTools.BoneSet import MH_HAND_BONES_R
 
 
 LHAND_ACTIVATION_CHAR = 'D'
@@ -167,19 +167,19 @@ class HandShapeSelector(bpy.types.Operator):
         
         if(self.use_right_hand):
             self.POSE_LIBRARY_NAME = RHAND_POSE_LIBRARY_NAME
-            self.HAND_BONE_NAMES = R_HAND_BONES
+            self.HAND_BONE_NAMES = MH_HAND_BONES_R
         else:
             self.POSE_LIBRARY_NAME = LHAND_POSE_LIBRARY_NAME
-            self.HAND_BONE_NAMES = L_HAND_BONES
+            self.HAND_BONE_NAMES = MH_HAND_BONES_L
         
         if(not self.POSE_LIBRARY_NAME in bpy.data.actions):
             self.report({'ERROR'}, "No action library named '" + self.POSE_LIBRARY_NAME + "' found")
             return {"CANCELLED"}
 
         if(self.use_right_hand):
-            self.r_hand_initial_rotations = retrieveBoneRotations(self.selected_armature, R_HAND_BONES)
+            self.r_hand_initial_rotations = retrieveBoneRotations(self.selected_armature, MH_HAND_BONES_R)
         else:
-            self.l_hand_initial_rotations = retrieveBoneRotations(self.selected_armature, L_HAND_BONES)
+            self.l_hand_initial_rotations = retrieveBoneRotations(self.selected_armature, MH_HAND_BONES_L)
 
         
         # Retrieve entries from the pose library

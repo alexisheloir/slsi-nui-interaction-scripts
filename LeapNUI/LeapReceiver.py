@@ -35,12 +35,14 @@ import struct   # to pack/unpack data from udp messages
 # If set to true listen for forwarded UDP packets.
 # Otherwise directly connect to the leapd through websockets.
 # But I experienced leapd crashes when quickly opening and closing connections to it in SDK v8.0.
-USE_UDP_SOCKET = True
+USE_UDP_SOCKET = False
 
 # Address to receive packets from the Leap UDP forwarder
 BINDING_ADDR = ''   # Empty string means: bind to all network interfaces
 LISTENING_PORT = 6437
 
+# Set it to true to use the new protocol introduced with Leap SDK v2 (full hand, named finger tips, all joints, ...)
+USE_PROTOCOL_V6 = True
 
 #
 #
@@ -196,7 +198,10 @@ class LeapReceiver(threading.Thread):
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sock.bind((BINDING_ADDR, LISTENING_PORT))
         else:
-            self.sock = websocket.create_connection("ws://localhost:6437/")
+            url = "ws://localhost:6437/"
+            if(USE_PROTOCOL_V6):
+                url += "v6.json"
+            self.sock = websocket.create_connection(url)
 
         print("Created.")
 
@@ -204,6 +209,11 @@ class LeapReceiver(threading.Thread):
             # Enable gesture detection
             request = json.dumps({ "enableGestures": "true"})
             self.sock.send(request)
+
+            if(USE_PROTOCOL_V6):
+                # ws.send(JSON.stringify({focused: true})); // claim focus
+                request = json.dumps({ "focused": "true"})
+                self.sock.send(request)
     
     def disconnect(self):
         # Close socket
@@ -218,7 +228,7 @@ class LeapReceiver(threading.Thread):
         #print("Receiving")
 
         if(USE_UDP_SOCKET):
-            raw_msg = self.sock.recv(10000)
+            raw_msg = self.sock.recv(15000)
             msg = raw_msg.decode("utf-8")
         else:
             msg = self.sock.recv()
@@ -373,6 +383,13 @@ class PointableSelector:
         assert (pointable != None)
         
         return pointable
+
+#
+#
+#
+
+# TODO
+# class SpecificFingerSelector
 
 
 #

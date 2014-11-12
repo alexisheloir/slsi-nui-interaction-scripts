@@ -71,10 +71,12 @@ bl_info = {
     """
 
 # From this module
-from .LeapReceiver import LeapReceiver
-from .LeapReceiver import PointableSelector
-from .LeapReceiver import HandSelector
-from .LeapReceiver import CircleGestureSelector
+from LeapNUI.LeapReceiver import LeapReceiver
+from LeapNUI.LeapReceiver import PointableSelector
+from LeapNUI.LeapReceiver import HandSelector
+from LeapNUI.LeapReceiver import CircleGestureSelector
+
+from MakeHumanTools.BoneSet import *
 
 
 # Blender specific
@@ -138,6 +140,8 @@ class ObjectTranslator:
     # Pointable location at the start of the operation
     pointable_start_location = None
     
+    # Pointable ocation at previous call of update/
+    pointable_last_location = None
     
     # If True, a pointable position will be used to translate the object, otherwise the hand palm center
     use_finger = False
@@ -157,6 +161,9 @@ class ObjectTranslator:
 
     # If true, we assume you are using the Leap longitudinally
     longitudinal_mode = False
+
+    # Float number used to scale the translation delta vector. Can be used to increase precision (<1.0) or increase reactivity (>1.0)
+    delta_scale = 1.0
     
     def useFinger(self, b):
         self.use_finger = b
@@ -167,6 +174,9 @@ class ObjectTranslator:
     
     def setLongitudinalMode(self, b):
         self.longitudinal_mode = b
+
+    def setScale(self, s):
+        self.delta_scale = s
     
     def setTarget(self, obj):
         self.target_object = obj
@@ -184,6 +194,7 @@ class ObjectTranslator:
     def reset(self):
         self.target_start_location = mathutils.Vector(self.target_object.location)
         self.pointable_start_location = None
+        self.pointable_last_location = None
     
     def restore(self):
         self.target_object.location = self.target_start_location
@@ -194,12 +205,14 @@ class ObjectTranslator:
         if(self.target_object != None):
             self.target_object.location = new_loc
     
-    def handPosToTargetSpace(self, pos):
+
+    def handPosToTargetSpace(self, pos, last_pos):
         if(self.pointable_start_location == None):
             self.pointable_start_location = pos
         
         # difference in pointable position
-        delta = [ pos[i] - self.pointable_start_location[i] for i in range(0,3)]
+        #delta = [ pos[i] - self.pointable_start_location[i] for i in range(0,3)]
+        delta = [ pos[i] - self.pointable_last_location[i] for i in range(0,3)]
         
         # Here we want to scale the delta according to the distance of the object from the camera.
         # We don't consider the field of view (yet)
@@ -214,6 +227,9 @@ class ObjectTranslator:
         
         # Convert to vector
         delta = mathutils.Vector(delta)
+
+        # scale for precision/reactivity
+        delta = delta * self.delta_scale
         
         # Eventually, adapt for logitudinal usage
         if(self.longitudinal_mode):
@@ -231,7 +247,8 @@ class ObjectTranslator:
         if(self.posebone_matrix != None):
             delta = self.posebone_matrix.inverted().to_quaternion() * delta
         
-        new_loc = [ self.target_start_location[i] + (delta[i]) for i in range(0,3)]
+        #new_loc = [ self.target_start_location[i] + (delta[i]) for i in range(0,3)]
+        new_loc = [ self.target_object.location[i] + (delta[i]) for i in range(0,3)]
         #print("start_loc" + str(self.target_start_location))
         #print("new_loc=" + str(new_loc))
         
@@ -255,9 +272,12 @@ class ObjectTranslator:
             
             pos = mathutils.Vector(hand["palmPosition"])
 
+        if(self.pointable_last_location == None):
+            self.pointable_last_location = pos
 
-        new_loc = self.handPosToTargetSpace(pos)
+        new_loc = self.handPosToTargetSpace(pos, self.pointable_last_location)
 
+        self.pointable_last_location = pos
 
         #print("obj=" + str(obj))
         if(self.target_object != None):
@@ -454,19 +474,19 @@ class FingerCircleElbowSwivelRotator:
         # Prepare a suffix for the bone names
         H = None
         if(self.target_hand == Hand.RIGHT):
-            H = "R"
+            H = ".R"
         elif(self.target_hand == Hand.LEFT):
-            H = "L"
+            H = ".L"
         else:
             assert False
     
         #print("SWIVEL "+H)
         
         
-        SHOULDER_BONE = "UpArmVec_" + H #"DfmUpArm1_L"
-        ELBOW_BONE = "LoArmVec_" + H # "DfmLoArm1_L"
-        WRIST_BONE = "Palm-1_" + H
-        self.ELBOW_CONTROL = "ElbowPT_" + H
+        SHOULDER_BONE = MH_SHOULDER_BONE_base + H
+        ELBOW_BONE = MH_ELBOW_BONE_base + H
+        WRIST_BONE = MH_WRIST_BONE_base + H
+        self.ELBOW_CONTROL = MH_ELBOW_CONTROLLER_base + H
         
         
         print("STORING ELBOW CONTROLLER")
@@ -514,11 +534,18 @@ class FingerCircleElbowSwivelRotator:
         
         # Calculate the vector between the shoulder and the wrist
         rotation_axis = self.wrist_location - self.shoulder_location
-        angle = SWIVEL_ROTATION_SPEED * UPDATE_DELAY
+        #angle = SWIVEL_ROTATION_SPEED * UPDATE_DELAY
+        pointable_id = gesture["pointableIds"][0]   # we take only one ID for circle gestures.
+        pointables = [p for p in leap_dict["pointables"] if p["id"] == pointable_id]
+        assert(len(pointables) > 0)
+        tipVelocity = pointables[0]["tipVelocity"]
+        tipVelocity = mathutils.Vector(tipVelocity).length
+        angle = tipVelocity * UPDATE_DELAY * 0.005
+        #print(tipVelocity, angle)
         
         normal = mathutils.Vector(gesture["normal"])
         #print("normal="+str(normal))
-        if(normal.z > 0):   # cloclwise rotation
+        if(normal.z < 0):   # cloclwise rotation
             angle = -angle
     
         #
@@ -549,17 +576,39 @@ class FingerCircleElbowSwivelRotator:
 #
 #
 
-
-leap_to_blender_rotmat = mathutils.Matrix.Rotation(0, 3, 'X')
-leap_to_blender_rotmat[0] = [1,0,0]
-leap_to_blender_rotmat[1] = [0,0,-1]
-leap_to_blender_rotmat[2] = [0,1,0]
+# The Leap coord system is like OpenGL: x-right, y-up, z-towards-observer
+# Blender uses: x-right, y-away-form-observer, z-up
 
 
-leap_to_blender_mirror_rotmat = mathutils.Matrix.Rotation(0, 3, 'X')
-leap_to_blender_mirror_rotmat[0] = [1,0,0]
-leap_to_blender_mirror_rotmat[1] = [0,0,1]
-leap_to_blender_mirror_rotmat[2] = [0,-1,0]
+#blender_to_leap_rotmat = mathutils.Matrix.Rotation(radians(90), 3, 'X')
+blender_to_leap_rotmat = mathutils.Matrix.Rotation(0, 3, 'X')
+blender_to_leap_rotmat[0] = [-1,0,0]
+blender_to_leap_rotmat[1] = [0,0,1]
+blender_to_leap_rotmat[2] = [0,1,0]
+
+# This matrix aligns a transformation in the Leap space to the Blender one in mirror fashion.
+# It implies that when moving towards the monitor in real space, the object moves towads the observer in virtual space.
+# Similary, rotations will behave as you look into a mirror.
+# leap_to_blender_mirror_rotmat = mathutils.Matrix.Rotation(0, 3, 'X')
+# leap_to_blender_mirror_rotmat[0] = [1,0,0]
+# leap_to_blender_mirror_rotmat[1] = [0,0,1]
+# leap_to_blender_mirror_rotmat[2] = [0,-1,0]
+
+# blender_to_leap_mirror_rotmat = mathutils.Matrix.Rotation(radians(-90), 3, 'X')
+# blender_to_leap_mirror_rotmat *= mathutils.Matrix.Scale(-1, 3, mathutils.Vector((0,0,1)))
+blender_to_leap_mirror_rotmat = mathutils.Matrix.Rotation(0, 3, 'X')
+blender_to_leap_mirror_rotmat[0] = [-1,0,0]
+blender_to_leap_mirror_rotmat[1] = [0,0,-1]
+blender_to_leap_mirror_rotmat[2] = [0,-1,0]
+
+
+leap_to_blender_posmat = blender_to_leap_rotmat
+
+# Thie matrix aligns a transformation in the Leap space to the Blender one.
+leap_to_blender_mirror_posmat = mathutils.Matrix.Rotation(0, 3, 'X')
+leap_to_blender_mirror_posmat[0] = [1,0,0]
+leap_to_blender_mirror_posmat[1] = [0,0,1]
+leap_to_blender_mirror_posmat[2] = [0,1,0]
 
 
 # Offsets to apply to hands
@@ -572,30 +621,93 @@ leap_to_blender_mirror_rotmat[2] = [0,-1,0]
 #        (0.10025879740715027, 0.08647797256708145, 0.991195559501648, 15.048200607299805),
 #        (0.0, 0.0, 0.0, 1.0)))
 
-#L_CONTROLLER_POS_OFFSET = mathutils.Vector((4.8884, -6.94336, -2))
-#R_CONTROLLER_POS_OFFSET = mathutils.Vector((-4.8884, -6.94336, -2))
+#
+# .matrix contains the transformation in global axes.
+# Controller hand.ik.L, in default position:
+# mglobal = Matrix(((0.39478737115859985, 0.25884515047073364, -0.8815567493438721, 4.882474899291992),
+#         (0.6339536309242249, -0.7712342143058777, 0.05745130777359009, -2.0682997703552246),
+#         (-0.6650155186653137, -0.5815471410751343, -0.4685693085193634, 10.817537307739258),
+#         (0.0, 0.0, 0.0, 1.0)))
+# In "frontal" position (identity for the Leap)
+# Matrix(((0.9926701784133911, 0.014985796064138412, -0.1199234127998352, 4.882474899291992),
+#         (0.018050719052553177, -0.9995366334915161, 0.024511512368917465, -2.0682997703552246),
+#         (-0.11950039863586426, -0.02649667114019394, -0.992480456829071, 10.817537307739258),
+#         (0.0, 0.0, 0.0, 1.0)))
+# or
+# Quaternion((0.01277670543640852, -0.9980840682983398, -0.008275993168354034, 0.059971097856760025))
 
-#L_CONTROLLER_POS_OFFSET = mathutils.Vector((4.8884, -6.3, -2))
-#R_CONTROLLER_POS_OFFSET = mathutils.Vector((-4.8884, -6.3, -2))
-L_CONTROLLER_POS_OFFSET = mathutils.Vector((4.0, -6.1, -2))
-R_CONTROLLER_POS_OFFSET = mathutils.Vector((-4.0, -6.1, -2))
+#
+# .matrix_basis contains the transformation in local axes, as the values are inputted in the numerical properties panel.
+# Controller hand.ik.L, in default position: Identity
+# In "frontal" position (identity for the Leap)
+# Matrix(((0.482806533575058, -0.6101229786872864, 0.6282100081443787, 0.0),
+#         (0.31252166628837585, 0.7901647686958313, 0.5272284150123596, 0.0),
+#         (-0.8180636167526245, -0.058220114558935165, 0.5721733570098877, 0.0),
+#         (0.0, 0.0, 0.0, 1.0)))
+# or
+# Quaternion((0.8433778882026672, -0.173542782664299, 0.4287146031856537, 0.2734968066215515))
 
 
-# We consider that, when the hand is open, the palm center is in fact calculated very close to the middle finger base.
+# matrix_channel (???):
+# Matrix(((1.0, 2.9802322387695312e-08, 2.9802322387695312e-08, 0.0),
+#         (5.587935447692871e-08, 1.0, -5.4016709327697754e-08, 4.76837158203125e-07),
+#         (2.9802322387695312e-08, 2.2910535335540771e-07, 1.000000238418579, -9.5367431640625e-07),
+#         (0.0, 0.0, 0.0, 1.0)))
+
+#
+# Controller hand.ik.R, in default position:
+# from .matrix (GLOBAL_ALIGNMENT_R):
+# Quaternion((0.012777568772435188, -0.998083770275116, 0.00827696267515421, -0.05997561663389206))
+# from .matrix_basis (ALIGNMENT_L):
+# Quaternion((0.843379557132721, -0.1735418289899826, -0.4287116825580597, -0.2734967768192291))
+
+#local transformation can be extracted with:
+# mbase.inverted() * .matrix
+# for translation:
+# (mbase.inverted() * .matrix).to_translation()
+# for rotation:
+#(mbase.inverted() * .matrix).to_quaternion()
+
+#L_CONTROLLER_POS_OFFSET = mathutils.Vector((4.0, -6.1, -2))
+#R_CONTROLLER_POS_OFFSET = mathutils.Vector((-4.0, -6.1, -2))
+# L_CONTROLLER_POS_OFFSET = mathutils.Vector((0,0,0))
+# R_CONTROLLER_POS_OFFSET = mathutils.Vector((0,0,0))
+
+# Absolute position of the hand in front of the body
+# Vector((0.049218177795410156, -2.463426351547241, 11.399259567260742))  # from bpy.data.objects['Manuel'].pose.bones['hand.ik.L'].matrix.translation
+# mathutils.Vector((0.049, -4, 11)) # Rounded and adjusted by trials
+# Absolute position of the hand in default position
+# Vector((4.882474899291992, -2.0682997703552246, 10.817537307739258))
+# The additional 0.45 on the x axis is due to the distance between the wrist and the hand center
+CONTROLLER_POS_OFFSET_L = mathutils.Vector((0.45, -4, 11)) - mathutils.Vector((4.882474899291992, -2.0682997703552246, 10.817537307739258))
+CONTROLLER_POS_OFFSET_R = mathutils.Vector((-CONTROLLER_POS_OFFSET_L[0], CONTROLLER_POS_OFFSET_L[1], CONTROLLER_POS_OFFSET_L[2] ))  # symmetric to yz plane
+
+
 #>>> bpy.context.selected_pose_bones[0].name
 #'DfmHand_L'
 # >>> bpy.context.selected_pose_bones[0].length
 # 1.1286101501538919
 #WRIST_TO_HAND_OFFSET = mathutils.Vector((0,1.1236,0))
-WRIST_TO_HAND_OFFSET = mathutils.Vector((0,1.0,0))
+#WRIST_TO_HAND_OFFSET = mathutils.Vector((0,1.0,0))
+
+
+# We consider that, when the hand is open, the palm center is in fact calculated very close to the middle finger base.
+# A vector going form the controller center of rotation to the center of the palm
+# first vector: left-hand palm center (more precisely, base of bone f_middle.01.L)
+# second vector: left-hand wrist center (center of rotation of controller hand.ik.L )
+WRIST_TO_HAND_OFFSET_L = mathutils.Vector((5.2734,-2.923,10.2127)) - mathutils.Vector((4.8825,-2.0683, 10.8175))
+WRIST_TO_HAND_OFFSET_R = mathutils.Vector((-WRIST_TO_HAND_OFFSET_L[0], WRIST_TO_HAND_OFFSET_L[1], WRIST_TO_HAND_OFFSET_L[2])) # simmetric with respect to x-axis
+
+print("WRIST_TO_HAND_OFFSET_L=", WRIST_TO_HAND_OFFSET_L, WRIST_TO_HAND_OFFSET_R)
 
 
 class MakeHumanHandsDirectController:
     
-    WRIST_BONE_L = "Wrist_L"
-    WRIST_BONE_R = "Wrist_R"
-    
     LEAP_BASE_HEIGHT = 1.20
+
+    # Quaternion to align the left hand of the character to a frontal position.
+    GLOBAL_ALIGNMENT_L = mathutils.Quaternion((0.01277670543640852, -0.9980840682983398, -0.008275993168354034, 0.059971097856760025))
+    GLOBAL_ALIGNMENT_R = mathutils.Quaternion((0.012777568772435188, -0.998083770275116, 0.00827696267515421, -0.05997561663389206))
     
     isMirrored = False
     
@@ -608,6 +720,8 @@ class MakeHumanHandsDirectController:
     
     l_wrist_local_mat = None
     r_wrist_local_mat = None
+    PARENT_R = None
+    PARENT_L = None
     
     l_hand_id = None
     r_hand_id = None
@@ -620,11 +734,13 @@ class MakeHumanHandsDirectController:
     
     def reset(self):
         
-        r_wrist = self.target_armature.pose.bones[self.WRIST_BONE_R]
+        r_wrist = self.target_armature.pose.bones[MH_HAND_CONTROLLER_R]
         self.r_wrist_local_mat = r_wrist.matrix * r_wrist.matrix_basis.inverted()
+        self.PARENT_R = r_wrist.matrix * r_wrist.matrix_basis.inverted()
         
-        l_wrist = self.target_armature.pose.bones[self.WRIST_BONE_L]
+        l_wrist = self.target_armature.pose.bones[MH_HAND_CONTROLLER_L]
         self.l_wrist_local_mat = l_wrist.matrix * l_wrist.matrix_basis.inverted()
+        self.PARENT_L = l_wrist.matrix * l_wrist.matrix_basis.inverted()
         
         self.r_wrist_initial_rot = r_wrist.rotation_quaternion
         self.r_wrist_initial_loc = r_wrist.location
@@ -636,10 +752,10 @@ class MakeHumanHandsDirectController:
         pass
     
     def restore(self):
-        self.target_armature.pose.bones[self.WRIST_BONE_R].rotation_quaternion = self.r_wrist_initial_rot
-        self.target_armature.pose.bones[self.WRIST_BONE_R].location = self.r_wrist_initial_loc
-        self.target_armature.pose.bones[self.WRIST_BONE_L].rotation_quaternion = self.l_wrist_initial_rot
-        self.target_armature.pose.bones[self.WRIST_BONE_L].location = self.l_wrist_initial_loc
+        self.target_armature.pose.bones[MH_HAND_CONTROLLER_R].rotation_quaternion = self.r_wrist_initial_rot
+        self.target_armature.pose.bones[MH_HAND_CONTROLLER_R].location = self.r_wrist_initial_loc
+        self.target_armature.pose.bones[MH_HAND_CONTROLLER_L].rotation_quaternion = self.l_wrist_initial_rot
+        self.target_armature.pose.bones[MH_HAND_CONTROLLER_L].location = self.l_wrist_initial_loc
         pass
     
     def update(self, leap_dict):
@@ -741,18 +857,23 @@ class MakeHumanHandsDirectController:
             hand_ids = [self.l_hand_id, self.r_hand_id]
             hand_indices = [l_hand_index, r_hand_index]
 
-        for hand_id, hand_index, align_angle, wrist_local_mat, WRIST_BONE, CONTROLLER_POS_OFFSET in zip(
+        for hand_id, hand_index, GLOBAL_ALIGNMENT, PARENT, WRIST_BONE, CONTROLLER_POS_OFFSET, WRIST_TO_HAND_OFFSET in zip(
                                                                                                         hand_ids,
                                                                                                         hand_indices,
-                                                                                                        [-90,90],
-                                                                                                        [self.l_wrist_local_mat, self.r_wrist_local_mat],
-                                                                                                        [self.WRIST_BONE_L, self.WRIST_BONE_R],
-                                                                                                        [L_CONTROLLER_POS_OFFSET, R_CONTROLLER_POS_OFFSET]) :
+                                                                                                        [self.GLOBAL_ALIGNMENT_L, self.GLOBAL_ALIGNMENT_R],
+                                                                                                        [self.PARENT_L, self.PARENT_R],
+                                                                                                        [MH_HAND_CONTROLLER_L, MH_HAND_CONTROLLER_R],
+                                                                                                        [CONTROLLER_POS_OFFSET_L, CONTROLLER_POS_OFFSET_R],
+                                                                                                        [WRIST_TO_HAND_OFFSET_L, WRIST_TO_HAND_OFFSET_R]) :
             
             
             if(hand_id != None):
                 hand = hands[hand_index]
                 
+                #
+                # ROTATION
+                #
+
                 # When the hand is straight over the Leap, the resulting quaternion must be Identity.
                 # This calc is made in Leap/OpenGL axes space.
                 h_z = - mathutils.Vector(hand["direction"])
@@ -767,37 +888,55 @@ class MakeHumanHandsDirectController:
                 
                 
                 # Align right hand to screen by rotating of +/- 90 degrees along the Y axis. Use -90 for left hand, 90 for the right one.
-                if(self.isMirrored):
-                    align_angle = -align_angle
-                rot_mat = mathutils.Matrix.Rotation(radians(align_angle), 3, 'Y') * rot_mat
+                # if(self.isMirrored):
+                #     align_angle = -align_angle
+                # rot_mat = mathutils.Matrix.Rotation(radians(align_angle), 3, 'Y') * rot_mat
             
                 # Convert the rotations in Blender orientation axes
                 if(self.isMirrored):
-                    rot = (leap_to_blender_mirror_rotmat * rot_mat * leap_to_blender_mirror_rotmat.inverted()).to_quaternion()
+                    #Hrot = (leap_to_blender_mirror_rotmat * rot_mat * leap_to_blender_mirror_rotmat.inverted()).to_quaternion()
+                    #rot = (leap_to_blender_mirror_rotmat.inverted() * rot_mat * leap_to_blender_mirror_rotmat).to_quaternion()
+                    rot = (blender_to_leap_mirror_rotmat * rot_mat * blender_to_leap_mirror_rotmat.inverted()).to_quaternion()
                 else:
-                    rot = (leap_to_blender_rotmat * rot_mat * leap_to_blender_rotmat.inverted()).to_quaternion()
+                    rot = (blender_to_leap_rotmat * rot_mat * blender_to_leap_rotmat.inverted()).to_quaternion()
+
+                # Compose with the global alignment to bring the character hand in frontal position.
+                rot = rot * GLOBAL_ALIGNMENT
+
+                # Convert to local system
+                rot = PARENT.inverted().to_quaternion() * rot
 
                 self.target_armature.pose.bones[WRIST_BONE].rotation_quaternion = rot
+
                 
+                #
+                # POSITION
+                #
+
                 pos = mathutils.Vector(hand["palmPosition"])
+
                 # Scale from millimeters to decimeters in MakeHuman space
                 pos *= 0.01
-                #print("Leap Space: " + str(pos))
-                # Rotate axes from OpenGL to Blender
-                pos = leap_to_blender_rotmat * pos
-                
-                if(self.isMirrored):
-                    pos.x = -pos.x
 
+                # Rotate axes from OpenGL to Blender
+                if(self.isMirrored):
+                    pos = leap_to_blender_mirror_posmat * pos
+                else:
+                    pos = leap_to_blender_posmat * pos
+                
                 #print("Blender space: " + str(pos))
                 # Align the hand position offset to the local hand controller axes
-                pos = wrist_local_mat.to_quaternion() * pos
-                #print("Wrist space: " + str(pos))
+                #pos -= PARENT.to_quaternion() * WRIST_TO_HAND_OFFSET
+                #print("wrist offset=", str(hand_id), str(WRIST_TO_HAND_OFFSET))
+                pos = pos - WRIST_TO_HAND_OFFSET
 
-                pos -= wrist_local_mat.to_quaternion() * WRIST_TO_HAND_OFFSET
-
-                # Add the default offset t position the hand in front of the character
+                # Add the default offset to position the hand in front of the character
                 pos += CONTROLLER_POS_OFFSET
+                print("controller offset=", str(hand_id), str(CONTROLLER_POS_OFFSET))
+
+                # Convert to local coordinates
+                pos = PARENT.inverted().to_quaternion() * pos
+                #print("Wrist space: " + str(pos))
 
                 self.target_armature.pose.bones[WRIST_BONE].location = pos
 
@@ -805,13 +944,13 @@ class MakeHumanHandsDirectController:
         if(bpy.context.scene.tool_settings.use_keyframe_insert_auto):
             frame = bpy.context.scene.frame_current
             # for the wrists
-            for bone_name in [self.WRIST_BONE_L, self.WRIST_BONE_R]:
+            for bone_name in [MH_HAND_CONTROLLER_L, MH_HAND_CONTROLLER_R]:
                 #print("Inserting key at frame "+str(frame))
                 self.target_armature.pose.bones[bone_name].keyframe_insert(data_path="rotation_quaternion", frame=frame)
                 self.target_armature.pose.bones[bone_name].keyframe_insert(data_path="location", frame=frame)
             
             # take care of elbow controllers
-            for bone_name in ['ElbowPT_L', 'ElbowPT_R']:
+            for bone_name in [MH_ELBOW_CONTROLLER_R, MH_ELBOW_CONTROLLER_L]:
                 self.target_armature.pose.bones[bone_name].keyframe_insert(data_path="location", frame=frame)
 
 
@@ -834,7 +973,7 @@ class LeapModal(bpy.types.Operator):
 
     
     isTranslating = BoolProperty(name="translate", description="Palm/Finger movement will translate the object")
-    translationUseFinger = BoolProperty(name="translate_use_finger", description="Translation point is taken from a finger instead of hand palm")
+    #translationUseFinger = BoolProperty(name="translate_use_finger", description="Translation point is taken from a finger instead of hand palm")
     isTranslationMirrored = BoolProperty(name="translate_mirror", description="Whether the translation is mirrored on the y-axis")
     isRotating = BoolProperty(name="rotate", description="Finger movement will rotate the object")
     isElbowSwivelRotating = BoolProperty(name="elbow_swivel_rotate", description="Finger Circle gesture rotates the elbow swivel angle")
@@ -846,9 +985,9 @@ class LeapModal(bpy.types.Operator):
     
     
     # by default we use palm
-    translationUseFinger = BoolProperty(name="translate", default=False, description="Finger movement will used to translate the object")
+    translationUseFinger = BoolProperty(name="translate_use_finger", default=False, description="Finger movement will used to translate the object")
     # by default we use palm
-    rotationUseFinger = BoolProperty(name="translate", default=False, description="Finger movement will be used to rotate the object")
+    rotationUseFinger = BoolProperty(name="rotation_use_finger", default=False, description="Finger movement will be used to rotate the object")
 
     # if True, an overlay will print interaction information during modal functioning.
     drawOverlay = BoolProperty(name="draw_overlay", description="Whether to draw (or not) in overlay the current editing operation")
@@ -1002,9 +1141,9 @@ class LeapModal(bpy.types.Operator):
         if(self.isElbowSwivelRotating):
             
             hand = None
-            if(target_object_name == "ElbowPT_L" or target_object_name == "Wrist_L"):
+            if(target_object_name == MH_ELBOW_CONTROLLER_L or target_object_name == MH_HAND_CONTROLLER_L):
                 hand = Hand.LEFT
-            elif(target_object_name == "ElbowPT_R" or target_object_name == "Wrist_R"):
+            elif(target_object_name == MH_ELBOW_CONTROLLER_R or target_object_name == MH_HAND_CONTROLLER_R):
                 hand = Hand.RIGHT
             else:
                 self.report({'ERROR'}, "You have to select a MakeHuman Elbow or Wrist IK handle to enable swivel rotation")
@@ -1030,7 +1169,13 @@ class LeapModal(bpy.types.Operator):
         
         context.window_manager.modal_handler_add(self)
         self.addHandlers(context)
-        
+
+        #
+        # Inform listeners        
+        for l in LeapModal.modalCallbacks:
+            if( hasattr(l, 'started')):
+                res = l.started(self, context)
+
         
         print("Launching LeapReceiver thread...")
         #self.leap_receiver = LeapReceiver()
@@ -1058,6 +1203,10 @@ class LeapModal(bpy.types.Operator):
             if(self.isHandsDirectlyControlled):
                 self.hands_direct_controller.restore()
 
+            for l in LeapModal.modalCallbacks:
+                if( hasattr(l, 'cancelled')):
+                    res = l.cancelled(self, context)
+
             return self.cancel(context)
         
         # If an invocation key is selected again, we stop the operator
@@ -1068,6 +1217,10 @@ class LeapModal(bpy.types.Operator):
 #           or event.type == HANDS_DIRECT_CONTROL_CHAR):
         if(event.value == 'PRESS'):
             self.report({'INFO'}, "Leap control finished")
+            for l in LeapModal.modalCallbacks:
+                if( hasattr(l, 'finished')):
+                    l.finished(self, context)
+
             self.stop_leap_receiver()
             self.removeHandlers()
             return {'FINISHED'}
@@ -1082,6 +1235,9 @@ class LeapModal(bpy.types.Operator):
             if(self.leap_receiver.hasTerminated()):
                 # The socket has been already closed by the (dead) thread
                 self.report({'ERROR'}, "Connection to Leap error!")
+                for l in LeapModal.modalCallbacks:
+                    if( hasattr(l, 'finished')):
+                        l.finished(self, context)
                 return self.cancel(context)
             
             
@@ -1108,6 +1264,11 @@ class LeapModal(bpy.types.Operator):
                 res = l.controllersUpdated(self, context)
                 if(res != None):
                     self.report({'INFO'}, "Leap control finished by listener")
+                    for l in LeapModal.modalCallbacks:
+                        if( hasattr(l, 'finished')):
+                            l.finished(self, context)
+
+
                     self.stop_leap_receiver()
                     self.removeHandlers()
                     return res
@@ -1115,6 +1276,21 @@ class LeapModal(bpy.types.Operator):
     
         return {'RUNNING_MODAL'}
     
+    #
+    #
+    # Listeners management
+
+    # Insert the argument in the list of global Listeners.
+    # The provided object must declare the following methods:
+    # - def controllersUpdated(self, controller, context):
+    #   invoked just afetr the controllers have been update. First argument will be the controller running the modal method, the second the context of execution.
+    def addModalListener(l):
+        LeapModal.modalCallbacks.append(l)
+
+    def removeModalListener(l):
+        LeapModal.modalCallbacks.remove(l)
+
+
     #
     #
     #

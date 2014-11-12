@@ -40,7 +40,11 @@ from LeapNUI import Icons
 #
 #
 
-class LeapInteractionLogic:
+#
+# Some constants carefully fine-tuned by hand.
+#
+
+class LeapInteractionConstants:
     
     EDIT_ON_THRESHOLD_SECS = 0.5 #0.1
     EDIT_OFF_THRESHOLD_SECS = 1.0 #0.5
@@ -52,42 +56,51 @@ class LeapInteractionLogic:
     FAST_MOVEMENT_SPEED = 1000
     FAST_MOVEMENT_LOOKBACK_SECS = 0.1
 
+    PINCH_FAST_MOVEMENT_SPEED = 100
+
+
     CARRIAGE_RETURN_TOTAL_LOOKBACK_SECS = 0.4
     CARRIAGE_RETURN_CHANGE_LOOKBACK_SECS = 0.2
     CARRIAGE_RETURN_MIN_BACKSPEED = 100
 
 
-    GRAB_MODE_FINGER = 0
-    GRAB_MODE_TIMED = 1
+    GRAB_MODE_GRASP = "grasp"
+    GRAB_MODE_TIMED = "timed"
+    GRAB_MODE_PINCH = "pinch"
 
-    GRAB_MODE = GRAB_MODE_TIMED
-    #GRAB_MODE = GRAB_MODE_FINGER
+
+    #Used by grabStrength
+    GRAB_STRENGTH_ACTIVATION_THRESHOLD = 1.0
+    GRAB_STRENGTH_DEACTIVATION_THRESHOLD = 0.05
+
+    PINCH_STRENGTH_ACTIVATION_THRESHOLD = 0.95
+    PINCH_STRENGTH_DEACTIVATION_THRESHOLD = 0.2
+
     
 
-    def __init__(self):
-        self.tracking = False
+    # def __init__(self):
+    #     self.tracking = False
         
-        self.last_drop_pos = None
+    #     self.last_drop_pos = None
         
-        self.hand_changed = False
+    #     self.hand_changed = False
         
     
-    def isTracking(self):
-        return self.tracking
+    # def isTracking(self):
+    #     return self.tracking
     
-    def setTracking(self,b):
-        self.tracking = b
+    # def setTracking(self,b):
+    #     self.tracking = b
 
-    def clearLastDrop():
-        self.last_drop_pos = None
+    # def clearLastDrop():
+    #     self.last_drop_pos = None
         
         
 #
+# This class defines the listener for the Leap Motion.
+# Its method is invoked each time a new Leap Information is received.
+# Essentially, its contains all the logic to start the interaction and run the LeapController
 #
-#
-
-
-
 class LeapDictListener:
     
     def __init__(self):
@@ -98,10 +111,6 @@ class LeapDictListener:
     
         self.tracking_start = -1
         
-        #self.first_time_in_3dview = -1
-    
-        self.last_3dview = None
-
         self.last_hand_id = None
         
         self.last_dict_received = None
@@ -128,19 +137,31 @@ class LeapDictListener:
     
 
         li = bpy.context.window_manager.leap_info
-        leap_logic = li.leap_logic
+        grab_mode = bpy.context.window_manager.leap_keyboardless_grab_mode
+        #leap_logic = li.leap_logic
         
     
-        leap_logic.hand_changed = False
+        li.hand_changed = False
+        pinchStrength = 0
     
         hand = self.hand_selector.select(leap_dict)
         if(hand != None):
             #print("HHH ID "+str(hand["id"]))
             if(hand["id"] != self.last_hand_id):
-                leap_logic.hand_changed = True
+                li.hand_changed = True
                 self.hand_motion_analyzer.reset()
     
             self.hand_motion_analyzer.update(hand)
+
+            grabStrength = hand["grabStrength"]
+            #print("EXPLICIT UNGRASP ="+ str(li.explicitely_ungrasped))
+            if(li.explicitely_ungrasped == False):
+                if(grabStrength < LeapInteractionConstants.GRAB_STRENGTH_DEACTIVATION_THRESHOLD):
+                    li.explicitely_ungrasped = True
+
+            pinchStrength = hand["pinchStrength"]
+            confidence = hand["confidence"]
+
     
         #
         # Memories for next cycle
@@ -150,85 +171,148 @@ class LeapDictListener:
             self.last_hand_id = None
             
 
-        #print("gmode="+str(leap_logic.GRAB_MODE)+"\t"+str(leap_logic.EDIT_ON_THRESHOLD_SECS))
+        #print("gmode="+grab_mode+"\t"+str(leap_logic.EDIT_ON_THRESHOLD_SECS))
     
         #
         # Handle tracking condition    
-        if(leap_logic.isTracking() == True):
+        if(li.isTracking() == True):
             #print("t")
             # Deactivatino logic is in the LeapManipulator Operator
             pass
                    
-        if(leap_logic.isTracking() == False):
+        if(li.isTracking() == False):
             if(hand != None):
                 #active_time = hand["timeVisible"]
                 #print(str(hand["id"]) + ": " + str(active_time))
                 
                 distant_from_last_drop = True
-                if(leap_logic.last_drop_pos!=None):
+                if(li.last_drop_pos!=None):
                     curr_pos = mathutils.Vector(hand["palmPosition"])
-                    dist = (curr_pos - leap_logic.last_drop_pos).length
+                    dist = (curr_pos - li.last_drop_pos).length
                 
-                    distant_from_last_drop = dist > leap_logic.DROP_OFF_RADIUS_THRESHOLD_MM
+                    distant_from_last_drop = dist > LeapInteractionConstants.DROP_OFF_RADIUS_THRESHOLD_MM
                     #print("DISTANT ENOUGH? " + str(dist) + "\t" + str(distant_from_last_drop))
         
-                n_fingers = HandMotionAnalyzer.countFingers(hand_id=hand["id"], leap_dict=leap_dict)
+                #n_fingers = HandMotionAnalyzer.countFingers(hand_id=hand["id"], leap_dict=leap_dict)
+
+                palm_vel_xyz = hand["palmVelocity"]
+                palm_vel_vect = mathutils.Vector(palm_vel_xyz)
+                palm_vel = palm_vel_vect.length
 
 
+                #fm = li.leap_listener.hand_motion_analyzer.handFastMovement(LeapInteractionConstants.FAST_MOVEMENT_SPEED, LeapInteractionConstants.FAST_MOVEMENT_LOOKBACK_SECS)
+                #print("Palm Velocity="+str(palm_vel)+" (threshold="+str(LeapInteractionConstants.PINCH_FAST_MOVEMENT_SPEED))
+
+                print("pinchStrength="+str(pinchStrength)+"\tconf="+str(confidence))
             
                 # Activate tracking!!!
                 #print("hand age="+str(self.hand_motion_analyzer.handAge()))
-                if( (leap_logic.GRAB_MODE == leap_logic.GRAB_MODE_TIMED
-                    and self.hand_motion_analyzer.handAge()>leap_logic.EDIT_ON_THRESHOLD_SECS
-                    and self.hand_motion_analyzer.isHandStable(leap_logic.EDIT_ON_THRESHOLD_SECS, leap_logic.EDIT_STABILITY_THRESHOLD)
+                if( (grab_mode == LeapInteractionConstants.GRAB_MODE_TIMED
+                    and self.hand_motion_analyzer.handAge()>LeapInteractionConstants.EDIT_ON_THRESHOLD_SECS
+                    and self.hand_motion_analyzer.isHandStable(LeapInteractionConstants.EDIT_ON_THRESHOLD_SECS, LeapInteractionConstants.EDIT_STABILITY_THRESHOLD)
                     and distant_from_last_drop==True
                     )
                     or
                     (
-                    leap_logic.GRAB_MODE == leap_logic.GRAB_MODE_FINGER
-                    and n_fingers <= leap_logic.EDIT_ON_MAX_FINGERS
+                    grab_mode == LeapInteractionConstants.GRAB_MODE_GRASP and
+                    grabStrength >= LeapInteractionConstants.GRAB_STRENGTH_ACTIVATION_THRESHOLD and
+                    li.explicitely_ungrasped
+                    )
+                    or
+                    (
+                    grab_mode == LeapInteractionConstants.GRAB_MODE_PINCH and
+                    pinchStrength >= (LeapInteractionConstants.PINCH_STRENGTH_ACTIVATION_THRESHOLD * confidence)
                     )
                     ):
-                    #print(str(self.hand_motion_analyzer.handAge()) + " ... ")
-                    leap_logic.setTracking(True)
-                    li.logMessage("ON Hand Stable")
-                    print("Tracking ACTIVATED")
-                    
-                    self.tracking_start = time.time()
-    
-                    # Run LeapModal operator
-                    # @see http://www.blender.org/documentation/blender_python_api_2_68_release/bpy.ops.html
-                    li.leap_listener.hand_motion_analyzer.reset()
-                    bpy.ops.object.leap_modal(isRotating=True, isTranslating=True)
+
+
+                    if(palm_vel <= LeapInteractionConstants.PINCH_FAST_MOVEMENT_SPEED):
+
+
+                        #print(str(self.hand_motion_analyzer.handAge()) + " ... ")
+                        li.setTracking(True)
+                        if grab_mode == LeapInteractionConstants.GRAB_MODE_TIMED:
+                            reason = "Stable"
+                        elif grab_mode == LeapInteractionConstants.GRAB_MODE_GRASP:
+                            reason = "Grabbing"
+                        elif grab_mode == LeapInteractionConstants.GRAB_MODE_PINCH:
+                            reason = "Pinching"
+                        else:
+                            reason = "Unknown!!!"
+                        li.logMessage("ON Hand "+reason)
+                        print("Tracking ACTIVATED")
+
+                        li.explicitely_ungrasped = False
+
+                        self.tracking_start = time.time()
+        
+                        # Run LeapModal operator
+                        # @see http://www.blender.org/documentation/blender_python_api_2_68_release/bpy.ops.html
+                        li.leap_listener.hand_motion_analyzer.reset()
+
+                        tr = False
+                        rot = False
+                        op = bpy.context.window_manager.leap_keyboardless_grasp_operation
+                        if(op == "tr"):
+                            tr = True
+                            rot = False
+                        elif(op == "rot"):
+                            tr = False
+                            rot = True
+                        elif(op == "tr-rot"):
+                            tr = True
+                            rot = True
+
+                        bpy.ops.object.leap_modal(isRotating=rot, isTranslating=tr)
+                    else:
+                        print("Not pinched: too fast.")
+                        print("Palm Velocity="+str(palm_vel)+" (threshold="+str(LeapInteractionConstants.PINCH_FAST_MOVEMENT_SPEED)+")")
                     
             else:
                 #assert (self.tracking == False and hand==None)
                 
                 # We reset the location of the last stable position
-                if( (leap_logic.GRAB_MODE == leap_logic.GRAB_MODE_TIMED) ):
-                    if(leap_logic.last_drop_pos != None):
+                if( grab_mode == LeapInteractionConstants.GRAB_MODE_TIMED ):
+                    if(li.last_drop_pos != None):
                         print("Clearing last drop position")
-                        leap_logic.last_drop_pos = None
+                        li.last_drop_pos = None
                 pass
         
         
         pass # end newDictReceived
     
 #
+# This class defines the listener for the LeapReceiver.
+# Its method is invoked at each frame received by the Leap.
+# Essentially, this class contains the logic to DE-activate a control and turn off the LeapOperator.
 #
-#
-
 class KeyboardLessLogicModalListener:
     
     tracking_start = None
 
+    def cancelled(self, leap_modal, context):
+        print("listening CANCELLED")
+        li = context.window_manager.leap_info
+        li.setTracking(False)
+        #self.tracking_start = None
+        li.leap_listener.resetHandId()
+        li.last_drop_pos = None
+        pass
+
+
+    def finished(self, leap_modal, context):
+        print("listening FINISHED")
+        li = context.window_manager.leap_info
+        li.setTracking(False)
+        #self.tracking_start = None
+        li.leap_listener.resetHandId()
+        li.last_drop_pos = None
+        pass
     
     def controllersUpdated(self, leap_modal, context):
         li = context.window_manager.leap_info
         #assert(li!=None) # otherwise the command wouldn't have started
-        leap_logic = context.window_manager.leap_info.leap_logic
-
-        assert (leap_logic.isTracking() == True)
+        assert (li.isTracking() == True)
     
         now = time.time()
         if(self.tracking_start == None):
@@ -242,40 +326,37 @@ class KeyboardLessLogicModalListener:
 
         
         #if(hand == None or hand_changed):
-        if(hand_id == None or leap_logic.hand_changed):
+        if(hand_id == None or li.hand_changed):
             # Hand out of sight
             # or hand changed: DEACTIVATE TRACKING
-            leap_logic.setTracking(False)
+            li.setTracking(False)
             self.tracking_start = None
-            li.leap_listener.resetHandId()
-            leap_logic.last_drop_pos = None
+            #li.leap_listener.resetHandId()
+            li.last_drop_pos = None
             reason = "Unknown"
             if(hand_id == None): reason = "lost"
-            elif(leap_logic.hand_changed) : reason = "changed"
+            elif(li.hand_changed) : reason = "changed"
             li.logMessage("OFF Hand " + reason)
             print("Tracking DEACTIVATED (hand " + reason + ")")
             return {'FINISHED'}
 
         else:
-            # Tracking on and hand in sight: MOVE OBJECT
-            #leap_modal.object_translator.update(li.leap_listener.getLeapDict())
-            
-            #leap_modal.object_rotator.update(li.leap_listener.getLeapDict())
+            grab_mode = bpy.context.window_manager.leap_keyboardless_grab_mode
             
             #
             # if "HAND REMOVED"
-            if(leap_logic.GRAB_MODE == leap_logic.GRAB_MODE_TIMED
-                and li.leap_listener.hand_motion_analyzer.handFastMovement(leap_logic.FAST_MOVEMENT_SPEED, leap_logic.FAST_MOVEMENT_LOOKBACK_SECS)
+            if(grab_mode == LeapInteractionConstants.GRAB_MODE_TIMED
+                and li.leap_listener.hand_motion_analyzer.handFastMovement(LeapInteractionConstants.FAST_MOVEMENT_SPEED, LeapInteractionConstants.FAST_MOVEMENT_LOOKBACK_SECS)
                 ):
                 # put the object in previous stable position
                 x,y,z = li.leap_listener.hand_motion_analyzer.getStablePosition()
 
                 leap_modal.obj_translator.setTargetPositionHandSpace(x,y,z)
                 # switch tracking to deactiveted
-                leap_logic.setTracking(False)
+                li.setTracking(False)
                 self.tracking_start = None
                 li.leap_listener.resetHandId()
-                leap_logic.last_drop_pos = None
+                li.last_drop_pos = None
                 li.logMessage("OFF Fast Movement")
                 print("Tracking DEACTIVATED (Hand fast movement)")
                 return {'FINISHED'}
@@ -283,16 +364,16 @@ class KeyboardLessLogicModalListener:
         
             #
             # handle "CARRAGE RETURN"
-            if(leap_logic.GRAB_MODE == leap_logic.GRAB_MODE_TIMED
+            if(grab_mode == LeapInteractionConstants.GRAB_MODE_TIMED
                 and li.leap_listener.hand_motion_analyzer.changeOfDirection(
-                    leap_logic.CARRIAGE_RETURN_CHANGE_LOOKBACK_SECS,
-                    leap_logic.CARRIAGE_RETURN_TOTAL_LOOKBACK_SECS,
-                    leap_logic.CARRIAGE_RETURN_MIN_BACKSPEED)
+                    LeapInteractionConstants.CARRIAGE_RETURN_CHANGE_LOOKBACK_SECS,
+                    LeapInteractionConstants.CARRIAGE_RETURN_TOTAL_LOOKBACK_SECS,
+                    LeapInteractionConstants.CARRIAGE_RETURN_MIN_BACKSPEED)
                 ):
-                leap_logic.setTracking(False)
+                li.setTracking(False)
                 self.tracking_start = None
                 li.leap_listener.resetHandId()
-                leap_logic.last_drop_pos = None
+                li.last_drop_pos = None
                 li.logMessage("OFF Change of Direction")
                 print("Tracking DEACTIVATED (Change of direction)")
                 return {'FINISHED'}
@@ -301,35 +382,73 @@ class KeyboardLessLogicModalListener:
             #
             # if "HAND IS STABLE"
             #print("stable="+str((li.leap_listener.hand_motion_analyzer.isHandStable(leap_logic.EDIT_OFF_THRESHOLD_SECS, leap_logic.EDIT_STABILITY_THRESHOLD))) + "\ttracinktime="+str(tracking_time))
-            if(leap_logic.GRAB_MODE == leap_logic.GRAB_MODE_TIMED
-                and li.leap_listener.hand_motion_analyzer.isHandStable(leap_logic.EDIT_OFF_THRESHOLD_SECS, leap_logic.EDIT_STABILITY_THRESHOLD)
-                and tracking_time>leap_logic.EDIT_OFF_THRESHOLD_SECS
+            if(grab_mode == LeapInteractionConstants.GRAB_MODE_TIMED
+                and li.leap_listener.hand_motion_analyzer.isHandStable(LeapInteractionConstants.EDIT_OFF_THRESHOLD_SECS, LeapInteractionConstants.EDIT_STABILITY_THRESHOLD)
+                and tracking_time>LeapInteractionConstants.EDIT_OFF_THRESHOLD_SECS
                 ):
-                leap_logic.setTracking(False)
+                li.setTracking(False)
                 self.tracking_start = None
                 li.leap_listener.resetHandId()
-                leap_logic.last_drop_pos = mathutils.Vector(hand["palmPosition"])
+                li.last_drop_pos = mathutils.Vector(hand["palmPosition"])
                 li.leap_listener.hand_motion_analyzer.reset()
                 li.logMessage("OFF Hand Stable")
                 print("Tracking DEACTIVATED (Hand stable)")
                 return {'FINISHED'}
 
+
+
+            grabStrength = hand["grabStrength"]
+            #print("GS="+str(grabStrength))
+
+            # Available only since protocol v6
+            pinchStrength = hand["pinchStrength"]
+            confidence = hand["confidence"]
+
+            #thr = (LeapInteractionConstants.PINCH_STRENGTH_DEACTIVATION_THRESHOLD * confidence)
+            #print("Confidence "+str(confidence)+"\tpinchStr "+ str(pinchStrength) +"\tDeactivation thr="+str(thr))
+
+            #
+            # Use pinch strength to modulate translation sensibility
+            #
+            # Available only since protocol v6
+            if(grab_mode == LeapInteractionConstants.GRAB_MODE_PINCH):
+                # When pinch is at activation threshold, we want scale at 1. When pinch is at deactivation threshold, we want scale at 0.
+                # assert 0 <= pinchStrength <= 1
+                scale = (pinchStrength - LeapInteractionConstants.PINCH_STRENGTH_DEACTIVATION_THRESHOLD) / (LeapInteractionConstants.PINCH_STRENGTH_ACTIVATION_THRESHOLD - LeapInteractionConstants.PINCH_STRENGTH_DEACTIVATION_THRESHOLD)
+                #print("PinchStr="+str(pinchStrength)+"\tSetting translation scale to "+str(scale))
+                leap_modal.obj_translator.setScale(scale)
+            else:
+                leap_modal.obj_translator.setScale(1.0)
+
                 
             #
-            # if "FINGERS CLOSED"
-            n_fingers = li.leap_listener.hand_motion_analyzer.countFingers(hand_id=hand_id, leap_dict=leap_dict)
-            if(leap_logic.GRAB_MODE == leap_logic.GRAB_MODE_FINGER
-                and n_fingers > leap_logic.EDIT_ON_MAX_FINGERS
+            # if "FINGERS OPENED"
+            if( (grab_mode == LeapInteractionConstants.GRAB_MODE_GRASP and
+                grabStrength <= LeapInteractionConstants.GRAB_STRENGTH_DEACTIVATION_THRESHOLD
+                )
+                or
+                (grab_mode == LeapInteractionConstants.GRAB_MODE_PINCH and
+                pinchStrength <= (LeapInteractionConstants.PINCH_STRENGTH_DEACTIVATION_THRESHOLD * confidence)
+                )
                 ):
-                leap_logic.setTracking(False)
+                li.setTracking(False)
                 self.tracking_start = None
                 li.leap_listener.resetHandId()
-                leap_logic.last_drop_pos = mathutils.Vector(hand["palmPosition"])
+                li.last_drop_pos = mathutils.Vector(hand["palmPosition"])
                 #op.hand_motion_analyzer.reset()
-                li.logMessage("Fingers Opened")
-                print("Tracking DEACTIVATED (Fingers opened)")
+                if grab_mode == LeapInteractionConstants.GRAB_MODE_TIMED:
+                    reason = "Stable"
+                elif grab_mode == LeapInteractionConstants.GRAB_MODE_GRASP:
+                    reason = "Ungrabbed"
+                elif grab_mode == LeapInteractionConstants.GRAB_MODE_PINCH:
+                    reason = "Unpinched"
+                else:
+                    reason = "Unknown!!!"
+
+                li.logMessage("OFF "+reason)
+                print("Tracking DEACTIVATED ("+reason+")")
                 return {'FINISHED'}
-                
+                                
         
         pass # end (op.tracking==True && hand!=None)
 
@@ -350,17 +469,39 @@ class LeapInfo:
     def __init__(self):
         self.leap_receiver = None
         self.leap_listener = None
-        self.leap_logic = None
         
+        # Run-time info
         self.dict_last_id = -1
+        self.tracking = False
+        self.last_drop_pos = None
+        self.hand_changed = False
+
+        self.explicitely_ungrasped = False
 
         self.log_messages = []
+
+
+
+    def isTracking(self):
+        return self.tracking
+    
+
+    def setTracking(self,b):
+        self.tracking = b
+
+
+    def clearLastDrop():
+        self.last_drop_pos = None
 
         
     def start(self):
         self.leap_receiver = LeapReceiver.getSingleton()
         self.leap_listener = LeapDictListener()
-        self.leap_logic = LeapInteractionLogic()
+
+        self.dict_last_id = -1
+        self.tracking = False        
+        self.last_drop_pos = None
+
 
     def update(self):
         
@@ -600,33 +741,6 @@ def draw_callback_px(self, context):
         pass
 
 
-    # if(wm.leap_info.leap_logic.isTracking()):
-    #     bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
-
-    #     # transparence
-    #     bgl.glEnable(bgl.GL_BLEND)
-    #     bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
-        
-    #     msg = "GRABBING!"
-    #     font_size = 48
-     
-    #     blf.size(0, font_size, 72)
-    #     bgl.glColor4f(r, g, b, 0.7)
-    #     blf.blur(0, 1)
-    #     # shadow?
-    #     blf.enable(0, blf.SHADOW)
-    #     blf.shadow_offset(0, 1, -1)
-    #     blf.shadow(0, 5, 0.0, 0.0, 0.0, 0.8)
-
-    #     item_w,item_h = blf.dimensions(0, msg)
-    #     pos_x = (context.region.width - item_w) / 2
-    #     pos_y = 0
-        
-    #     blf.position(0, pos_x, pos_y, 0)    
-    #     blf.draw(0, msg)
-        
-    #     bgl.glPopClientAttrib()
-
     #
     # Draw the LeapInfo log messages
     font_size = 24
@@ -656,7 +770,7 @@ def draw_callback_px(self, context):
         pos_x = context.region.width - (Icons.ICON_SIZE * 1.5)
         pos_y = (Icons.ICON_SIZE / 2)
 
-        if(wm.leap_info.leap_logic.isTracking()):           # GREEN HAND
+        if(wm.leap_info.isTracking()):           # GREEN HAND
             Icons.drawIcon("5-spreadfingers-icon-green.png", pos_x, pos_y)
             pass
         else:                                               # RED HAND
@@ -668,6 +782,19 @@ def draw_callback_px(self, context):
 #
 #
 
+# Format: [(identifier, name, description, icon, number), ...] 
+# Only the first 3 elements are mandatory
+LEAP_ACTIVATION_MODES = [
+    (LeapInteractionConstants.GRAB_MODE_TIMED, "Timed", "Control acticated and deativate by stability timeout"),
+    (LeapInteractionConstants.GRAB_MODE_GRASP, "Grasp", "Control (de-)activated by grasping with the fingers"),
+    (LeapInteractionConstants.GRAB_MODE_PINCH, "Pinch", "Control (de-)activated by pinching with the fingers (only with protocol v6)")
+]
+
+LEAP_OPERATION_MODES = [
+    ("tr", "Translate", "Activate Translation"),
+    ("rot", "Rotate", "Activate Rotation"),
+    ("tr-rot", "Tr & Rot", "Activate Translation and Rotation")
+]
 
 # store keymaps here to access after registration
 addon_keymaps = []
@@ -680,6 +807,11 @@ def register():
     # note: it is not stored in the Scene, but in window manager:
     bpy.types.WindowManager.leap_info = LeapInfo()
     
+    # Register properties
+    bpy.types.WindowManager.leap_keyboardless_grab_mode = bpy.props.EnumProperty(items=LEAP_ACTIVATION_MODES, name="Grab Mode", description="The way the Leap Control is de(activated): by hand stability, full hand grabbing, or pinching.")
+    #bpy.types.WindowManager.leap_keyboardless_grasp_uses_grabStrength = bpy.props.BoolProperty(name="Grasp use grabStrength", description="What to use for grabbing. The finger count or the grabStrength attribute of new protocol v6.")
+    bpy.types.WindowManager.leap_keyboardless_grasp_operation = bpy.props.EnumProperty(items=LEAP_OPERATION_MODES, name="Operation", description="Whether Keyboardless activates only translation, only rotation, or both.")
+
     
     # Register classes    
     bpy.utils.register_class(KeyboardlessControlSwitch)
@@ -706,6 +838,10 @@ def unregister():
     bpy.utils.unregister_class(KeyboardlessControlOn)
     bpy.utils.unregister_class(KeyboardlessControlSwitch)
 
+
+    # Unregister properties
+    del bpy.context.window_manager.leap_keyboardless_grab_mode
+    del bpy.context.window_manager.leap_keyboardless_grasp_operation
     
 
     # handle the keymap
@@ -715,11 +851,7 @@ def unregister():
 
     # removal of properties when script is disabled
     del bpy.context.window_manager.leap_info
-    # wm = bpy.context.window_manager
-    # props = "leap_info"
-    # for p in props:
-    #     if p in wm:
-    #         del wm[p]
+
 
     print("Unregistered")
 
