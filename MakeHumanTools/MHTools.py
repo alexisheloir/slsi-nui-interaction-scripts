@@ -186,6 +186,40 @@ class MakeHumanResetBody(bpy.types.Operator):
 #
 #
 
+class MakeHumanResetLegs(bpy.types.Operator):
+    """This is the Blender operator to reset the MakeHumn legs to default position."""
+    
+    bl_idname = "object.mh_reset_legs"
+    bl_label = "Reset MakeHuman Legs"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    
+    @classmethod
+    def poll(cls, context):
+        return mh_poll(cls, context)
+    
+    def execute(self, context):
+        
+        # Retrieve the currently selected armature
+        armature = getSelectedArmature(context)
+        
+        if(armature == None):
+            self.report({'ERROR'}, "No armature found!")
+            return {'CANCELLED'}
+        
+        bones = bpy.data.objects[armature.name].pose.bones
+        
+        # Reset all controllers position
+        for ctrl in MH_LEG_CONTROLLERS:
+            bones[ctrl].location.xyz = 0,0,0
+            bones[ctrl].rotation_quaternion = mathutils.Quaternion((1,0,0,0))
+        
+        return {'FINISHED'}
+
+#
+#
+#
+
 
 
 class MakeHumanResetHands(bpy.types.Operator):
@@ -503,9 +537,10 @@ class MHToolsPanel(bpy.types.Panel):
     
     
     def draw(self, context):
-        self.layout.operator("object.mh_reset_arms", text="Reset Arms")
         self.layout.operator("object.mh_reset_facial_rig", text="Reset Facial Expression")
+        self.layout.operator("object.mh_reset_arms", text="Reset Arms")
         self.layout.operator("object.mh_reset_body", text="Reset Body")
+        self.layout.operator("object.mh_reset_legs", text="Reset Legs")
         
         r = self.layout.row()
         # see http://wiki.blender.org/index.php/Dev:2.5/Py/Scripts/Cookbook/Code_snippets/Interface
@@ -516,6 +551,8 @@ class MHToolsPanel(bpy.types.Panel):
         p.right_hand = True
         p.left_hand = False
         
+        self.layout.separator()
+
         self.layout.operator("object.mh_select_all_fcurves", text="Select All FCurves")
 
         self.layout.operator("object.mh_select_all_pose_bones", text="Select All Pose Bones")
@@ -536,6 +573,7 @@ def register():
     bpy.utils.register_class(MakeHumanResetFacialRig)
     bpy.utils.register_class(MakeHumanResetBody)
     bpy.utils.register_class(MakeHumanResetHands)
+    bpy.utils.register_class(MakeHumanResetLegs)
     bpy.utils.register_class(MakeHumanSelectHandBones)
     bpy.utils.register_class(MakeHumanSelectAllFCurves)
     bpy.utils.register_class(MakeHumanSelectAllPoseBones)
@@ -550,6 +588,7 @@ def unregister():
     bpy.utils.unregister_class(MakeHumanResetFacialRig)
     bpy.utils.unregister_class(MakeHumanResetBody)
     bpy.utils.unregister_class(MakeHumanResetHands)
+    bpy.utils.unregister_class(MakeHumanResetLegs)
     bpy.utils.unregister_class(MakeHumanSelectHandBones)
     bpy.utils.unregister_class(MakeHumanSelectAllFCurves)
     bpy.utils.unregister_class(MakeHumanSelectAllPoseBones)

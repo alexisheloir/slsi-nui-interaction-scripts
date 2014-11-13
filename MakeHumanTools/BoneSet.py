@@ -73,11 +73,15 @@ MH_FACIAL_CONTROLLERS = [
 
                   ]
 
+MH_LEG_CONTROLLER_R = "foot.ik.R"
+MH_LEG_CONTROLLER_L = "foot.ik.L"
+MH_KNEE_CONTROLLER_R = "knee.pt.ik.R"
+MH_KNEE_CONTROLLER_L = "knee.pt.ik.L"
 MH_LEG_CONTROLLERS = [
-                      "foot.ik.R",
-                      "foot.ik.L",
-                      "knee.pt.ik.R",
-                      "knee.pt.ik.L"
+                      MH_LEG_CONTROLLER_R,
+                      MH_LEG_CONTROLLER_L,
+                      MH_KNEE_CONTROLLER_R,
+                      MH_KNEE_CONTROLLER_L,
                       ]
 
 MH_CONTROLLER_JAW = "jaw"
@@ -89,11 +93,16 @@ MH_HEAD_CONTROLLERS = [
                         MH_CONTROLLER_GAZE
                         ]
 
+MH_ROOT_CONTROLLER = "root"
+MH_UPCHEST_CONTROLLER = "chest-1"
+MH_HIPS_CONTROLLER = "hips"
 MH_BODY_CONTROLLERS = [
-                       "spine",
-                       "spine-1",
-                       "chest",
-                       "chest-1"
+                        "spine",
+                        "spine-1",
+                        "chest",
+                        MH_UPCHEST_CONTROLLER,
+                        MH_ROOT_CONTROLLER,
+                        MH_HIPS_CONTROLLER
                        ]
 
 
