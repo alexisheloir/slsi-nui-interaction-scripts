@@ -924,8 +924,127 @@ class MakeHumanHandsDirectController:
 #
 #
 
+# This class takes the information about finger extension in the Leap Dictionary and maps it to the Finger controllers fo the MakeHuman character
+class MakeHumanFingersDirectController:
 
-#class MakeHumanFingersDirectController:
+    isMirrored = False
+    
+    target_armature = None
+
+    def setTargetArmature(self, a):
+        self.target_armature = a
+    
+    def setMirrored(self, b):
+        self.isMirrored = b
+    
+    def reset(self):
+        
+        pass
+    
+    def restore(self):
+
+        pass
+    
+    def update(self, leap_dict):
+        
+        if(not 'hands' in leap_dict):
+            return None
+    
+
+        # Infer which hand is left and which is right
+        hands = leap_dict["hands"]
+
+        rhand_id = None
+        lhand_id = None
+
+        # Take the indices of right and left hands
+        for h in hands:
+            if(h["type"] == "right"):
+                rhand_id = h["id"]
+            elif(h["type"] == "left"):
+                lhand_id = h["id"]
+
+        # If we work in mirror mode, let's swap them
+        if(self.isMirrored):
+            rhand_id, lhand_id = lhand_id, rhand_id
+
+
+        # type()
+        # The integer code representing the finger name.
+        # 0 = TYPE_THUMB
+        # 1 = TYPE_INDEX
+        # 2 = TYPE_MIDDLE
+        # 3 = TYPE_RING
+        # 4 = TYPE_PINKY
+
+        # Gather reference to fingers
+        for p in leap_dict["pointables"]:
+            finger_type = p["type"]
+            #print("pointable "+str(finger_type)+" of hand "+str(p["handId"]))
+
+            handId = p["handId"]
+            if(handId==rhand_id):
+                target_hand_id = rhand_id
+                # names of the finger controllers, ordered as indexes by the leap SDK "type" attribute, from thumb to pink.
+                controller_names = MH_HAND_CONTROLLERS_R
+            elif(handId == lhand_id):
+                target_hand_id = lhand_id
+                controller_names = MH_HAND_CONTROLLERS_L
+            else:
+                # If the hand is neither the left nor the right one (maybe for slightly visible fingers or pointables), then skip everything.
+                continue
+
+            finger_length = p["length"]
+            if(finger_length == 0):
+                continue
+
+            #
+            # calculate an extension factor as ratio between the finger length and the position of the tip.
+
+            # btipPosition – position of the extreme end of the distal phalanx as an array of 3 floating point numbers.
+            # mcpPosition - The physical position of the metacarpophalangeal joint, or knuckle, of the finger. This position is the joint between the metacarpal and proximal phalanx bones.
+            finger_tip_pos = mathutils.Vector(p["btipPosition"])
+            finger_base_pos = mathutils.Vector(p["mcpPosition"])
+            distance = (finger_tip_pos - finger_base_pos).length
+            extension_ratio = distance / finger_length
+
+            #
+            # The provided length of a finger doesn't take into account the whole size until the knuckle.
+            # For each finger, the proportion between the finger length and the full size (tip to knuckle) distance is 1.41 (2.00 for the thumb)
+            # So I divide the ration for this value to normalize the extension_ratio between 0 and 1.
+            FINGER_LENGTH_TO_DISTANCE_RATIO = 1.41
+            THUMB_LENGTH_TO_DISTANCE_RATIO = 2.00
+            if(finger_type == 0):
+                controller_ratio = extension_ratio / THUMB_LENGTH_TO_DISTANCE_RATIO
+            else:
+                controller_ratio = extension_ratio / FINGER_LENGTH_TO_DISTANCE_RATIO
+
+
+            #if(p["type"] == 1):
+            #print(finger_length, finger_base_pos, finger_tip_pos, distance,  extension_ratio, controller_ratio)
+
+            # clamp
+            controller_ratio = sorted((0.0, controller_ratio, 1.0))[1]
+
+            # The resulting ratio will be effectively between 0.6 and 1.
+            # I operate the controllers by placing a rotation around the X axis, of a XYZ euler rotatino order, to be ca. 70 degs when the cntroller value is at 0.6.
+            # ratio=1 -> rot = 0
+            # ratio=0.6 -> rot = 70
+            # 70/(1.0-0.6) -> -175
+            # 90/(1.0-0.6) -> -225
+            # eq: angle = 175 - 175 * ratio
+            #finger_angle = 175 - 175 * controller_ratio
+            finger_angle = 225 - 225 * controller_ratio
+            finger_q = mathutils.Quaternion( (1.0, 0.0, 0.0), radians(finger_angle) )
+
+            # Apply this ratio to the finger controllers.
+            controller = self.target_armature.pose.bones[ controller_names[finger_type] ]
+            controller.rotation_quaternion = finger_q
+
+
+
+
+        # For each finger, if the information is available
 
 
 
@@ -948,6 +1067,7 @@ class LeapModal(bpy.types.Operator):
     isElbowSwivelRotating = BoolProperty(name="elbow_swivel_rotate", description="Finger Circle gesture rotates the elbow swivel angle")
     isHandsDirectlyControlled = BoolProperty(name="hands_direct_control", description="Hands position is directly controlled by hands detected in Leap")
     handsMirrorMode = BoolProperty(name="hands_mirror_mode", description="Hands direct control is applied with the 'mirror' metaphor")
+    isFingersDirectlyControlled = BoolProperty(name="fingers_direct_control", description="Fingers extension and orientation is directly controlled by hands detected in Leap")
     
     targetObjectName = StringProperty(name="target_object_name", description="The name of the object to manipulate. If None, the active object will be used", default="")
     targetPoseBoneName = StringProperty(name="target_posebone_name", description="The name of the posebone to manipulate. If None, the active posebone will be used", default="")
@@ -982,6 +1102,7 @@ class LeapModal(bpy.types.Operator):
     obj_rotator = ObjectRotator()
     elbow_swivel_rotator = FingerCircleElbowSwivelRotator()
     hands_direct_controller = MakeHumanHandsDirectController()
+    fingers_direct_controller = MakeHumanFingersDirectController()
     
     timer = None
     
@@ -1138,6 +1259,16 @@ class LeapModal(bpy.types.Operator):
             self.hands_direct_controller.setTargetArmature(arm)
             self.hands_direct_controller.setMirrored(self.handsMirrorMode)
             self.hands_direct_controller.reset()
+
+
+        if(self.isFingersDirectlyControlled):
+            if(arm == None):
+                self.report({'ERROR'}, "No armature selected")
+                return {'CANCELLED'}
+
+            self.fingers_direct_controller.setTargetArmature(arm)
+            self.fingers_direct_controller.setMirrored(self.handsMirrorMode)
+            self.fingers_direct_controller.reset()
         
         self.report({'INFO'}, "Leap control starting")
         
@@ -1173,6 +1304,8 @@ class LeapModal(bpy.types.Operator):
                 self.elbow_swivel_rotator.restore()
             if(self.isHandsDirectlyControlled):
                 self.hands_direct_controller.restore()
+            if(self.isFingersDirectlyControlled):
+                self.fingers_direct_controller.restore()
 
             for l in LeapModal.modalCallbacks:
                 if( hasattr(l, 'cancelled')):
@@ -1227,6 +1360,9 @@ class LeapModal(bpy.types.Operator):
                 
                 if(self.isHandsDirectlyControlled):
                     self.hands_direct_controller.update(leap_info)
+
+                if(self.isFingersDirectlyControlled):
+                    self.fingers_direct_controller.update(leap_info)
 
             #
             # Update modal listeners

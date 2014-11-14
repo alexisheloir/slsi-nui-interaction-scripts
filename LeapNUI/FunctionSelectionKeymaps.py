@@ -50,35 +50,38 @@ def register():
         kmi = km.keymap_items.new(LeapModal.bl_idname, TRANSLATION_SHORTCUT_CHAR, 'PRESS', ctrl=False, shift=False)
         kmi.properties.isTranslating = True
         kmi.properties.translationUseFinger = True
-        function_selection_keymap_items.append(kmi)
+        function_selection_keymap_items.append((km, kmi))
         
         # R - Rotation
         kmi = km.keymap_items.new(LeapModal.bl_idname, ROTATION_SHORTCUT_CHAR, 'PRESS', ctrl=False, shift=False)
         kmi.properties.isRotating = True
         #kmi.properties.rotationUseFinger = True
-        function_selection_keymap_items.append(kmi)
+        function_selection_keymap_items.append((km, kmi))
         
         # T - Translation and Rotation
         kmi = km.keymap_items.new(LeapModal.bl_idname, TR_AND_ROT_SHORTCUT_CHAR, 'PRESS', ctrl=False, shift=False)
         kmi.properties.isTranslating = True
         kmi.properties.isRotating = True
-        function_selection_keymap_items.append(kmi)
+        function_selection_keymap_items.append((km, kmi))
         
         # F - Elbow swivel rotation
         kmi = km.keymap_items.new(LeapModal.bl_idname, FINGER_ROTATION_SHORTCUT_CHAR, 'PRESS', ctrl=False, shift=False)
         kmi.properties.isElbowSwivelRotating = True
-        function_selection_keymap_items.append(kmi)
+        function_selection_keymap_items.append((km, kmi))
         
         # H - Hands direct control (first person)
         kmi = km.keymap_items.new(LeapModal.bl_idname, HANDS_DIRECT_CONTROL_CHAR, 'PRESS', ctrl=False, shift=False)
         kmi.properties.isHandsDirectlyControlled = True
-        function_selection_keymap_items.append(kmi)
+        kmi.properties.isFingersDirectlyControlled = True
+        function_selection_keymap_items.append((km, kmi))
         
         # H - Hands direct control (mirror mode)
         kmi = km.keymap_items.new(LeapModal.bl_idname, HANDS_DIRECT_CONTROL_CHAR, 'PRESS', ctrl=False, shift=True)
         kmi.properties.isHandsDirectlyControlled = True
         kmi.properties.handsMirrorMode = True
-        function_selection_keymap_items.append(kmi)
+        kmi.properties.isFingersDirectlyControlled = True
+        function_selection_keymap_items.append((km, kmi))
+
         
     print("ok")
 
@@ -88,15 +91,20 @@ def unregister():
     
     # handle the keymap
     wm = bpy.context.window_manager
-    for edit_mode in EDIT_MODES:
-        km = wm.keyconfigs.addon.keymaps[edit_mode]
-        for kmi in function_selection_keymap_items:
-            if(kmi in km.keymap_items.values()):
-                print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
-                km.keymap_items.remove(kmi)
-    
+
+    for km, kmi in function_selection_keymap_items:
+        print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
+        km.keymap_items.remove(kmi)
     function_selection_keymap_items.clear()
 
+
+    # for edit_mode in EDIT_MODES:
+    #     km = wm.keyconfigs.addon.keymaps[edit_mode]
+    #     for kmi in function_selection_keymap_items:
+    #         if(kmi in km.keymap_items.values()):
+    #             print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
+    #             km.keymap_items.remove(kmi)
+    
     print("ok")
 
 

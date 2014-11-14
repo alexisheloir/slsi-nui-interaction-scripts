@@ -106,8 +106,8 @@ MH_BODY_CONTROLLERS = [
                        ]
 
 
-MH_HAND_CONTROLLERS_R = [ "ring.R", "thumb.R", "index.R", "middle.R", "pinky.R" ]
-MH_HAND_CONTROLLERS_L = [ "ring.L", "thumb.L", "index.L", "middle.L", "pinky.L" ]
+MH_HAND_CONTROLLERS_R = [ "thumb.R", "index.R", "middle.R", "ring.R", "pinky.R" ]
+MH_HAND_CONTROLLERS_L = [  "thumb.L", "index.L", "middle.L", "ring.L", "pinky.L" ]
 MH_HAND_CONTROLLERS = MH_HAND_CONTROLLERS_R + MH_HAND_CONTROLLERS_L 
 
 

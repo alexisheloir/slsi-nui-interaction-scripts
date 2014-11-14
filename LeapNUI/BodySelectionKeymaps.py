@@ -397,7 +397,7 @@ def register():
         #kmi.properties.translationUseFinger = True
         kmi.properties.targetPoseBoneName = MH_CONTROLLER_NECK
         kmi.properties.userData = "1" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
         
         # EYES
         kmi = km.keymap_items.new(LeapModal.bl_idname, EYES_CHAR, 'PRESS', ctrl=False, shift=False)
@@ -405,7 +405,7 @@ def register():
         kmi.properties.translationUseFinger = True
         kmi.properties.targetPoseBoneName = MH_CONTROLLER_GAZE
         kmi.properties.userData = "2" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
 
         # RIGHT HAND
         kmi = km.keymap_items.new(LeapModal.bl_idname, RHAND_CHAR, 'PRESS', ctrl=False, shift=False)
@@ -414,7 +414,7 @@ def register():
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_HAND_CONTROLLER_R
         kmi.properties.userData = "3" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
 
         # RIGHT ELBOW
         kmi = km.keymap_items.new(LeapModal.bl_idname, RHAND_CHAR, 'PRESS', ctrl=False, shift=True)
@@ -424,7 +424,7 @@ def register():
         kmi.properties.isElbowSwivelRotating = True
         kmi.properties.targetPoseBoneName = MH_ELBOW_CONTROLLER_R
         kmi.properties.userData = "3" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
 
         
         # LEFT HAND
@@ -434,7 +434,7 @@ def register():
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_HAND_CONTROLLER_L
         kmi.properties.userData = "5" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
 
         # LEFT ELBOW
         kmi = km.keymap_items.new(LeapModal.bl_idname, LHAND_CHAR, 'PRESS', ctrl=False, shift=True)
@@ -444,7 +444,7 @@ def register():
         kmi.properties.isElbowSwivelRotating = True
         kmi.properties.targetPoseBoneName = MH_ELBOW_CONTROLLER_L
         kmi.properties.userData = "5" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
 
         # TORSO
         kmi = km.keymap_items.new(LeapModal.bl_idname, TORSO_CHAR, 'PRESS', ctrl=False, shift=False)
@@ -454,7 +454,7 @@ def register():
         #kmi.properties.targetPoseBoneName = "Spine3"   # this was for FK spine
         kmi.properties.targetPoseBoneName = MH_UPCHEST_CONTROLLER
         kmi.properties.userData = "4" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
 
         # BELLY
         kmi = km.keymap_items.new(LeapModal.bl_idname, PELVIS_CHAR, 'PRESS', ctrl=False, shift=False)
@@ -463,7 +463,7 @@ def register():
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_ROOT_CONTROLLER
         kmi.properties.userData = "7" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
 
         # RIGHT FOOT
         kmi = km.keymap_items.new(LeapModal.bl_idname, RFOOT_CHAR, 'PRESS', ctrl=False, shift=False)
@@ -472,7 +472,7 @@ def register():
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_LEG_CONTROLLER_R
         kmi.properties.userData = "6" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
 
         # RIGHT KNEE
         kmi = km.keymap_items.new(LeapModal.bl_idname, RFOOT_CHAR, 'PRESS', ctrl=False, shift=True)
@@ -481,7 +481,7 @@ def register():
         kmi.properties.translationUseFinger = True
         kmi.properties.targetPoseBoneName = MH_KNEE_CONTROLLER_R
         kmi.properties.userData = "6" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
 
         # LEFT FOOT
         kmi = km.keymap_items.new(LeapModal.bl_idname, LFOOT_CHAR, 'PRESS', ctrl=False, shift=False)
@@ -490,7 +490,7 @@ def register():
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_LEG_CONTROLLER_L
         kmi.properties.userData = "8" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
 
         # LEFT KNEE
         kmi = km.keymap_items.new(LeapModal.bl_idname, LFOOT_CHAR, 'PRESS', ctrl=False, shift=True)
@@ -499,7 +499,7 @@ def register():
         kmi.properties.translationUseFinger = True
         kmi.properties.targetPoseBoneName = MH_KNEE_CONTROLLER_L
         kmi.properties.userData = "8" # icon position to highlight
-        body_selection_keymap_items.append(kmi)
+        body_selection_keymap_items.append((km, kmi))
     
     print("ok")
 
@@ -523,14 +523,17 @@ def unregister():
 
     print("Unregistering keymaps for body selection...", end="")
     # handle the keymap
-    wm = bpy.context.window_manager
-    for edit_mode in EDIT_MODES:
-        km = wm.keyconfigs.addon.keymaps[edit_mode]
-        for kmi in body_selection_keymap_items:
-            if(kmi in km.keymap_items.values()):
-                print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
-                km.keymap_items.remove(kmi)
+    # wm = bpy.context.window_manager
+    # for edit_mode in EDIT_MODES:
+    #     km = wm.keyconfigs.addon.keymaps[edit_mode]
+    #     for kmi in body_selection_keymap_items:
+    #         if(kmi in km.keymap_items.values()):
+    #             print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
+    #             km.keymap_items.remove(kmi)
 
+    for km, kmi in body_selection_keymap_items:
+        print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
+        km.keymap_items.remove(kmi)
     body_selection_keymap_items.clear()
 
     print("ok")
