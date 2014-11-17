@@ -429,8 +429,6 @@ class ObjectRotator:
 #
 
 
-SWIVEL_ROTATION_SPEED = 0.2   # radians per second
-
 class FingerCircleElbowSwivelRotator:
     """WARNING: This works only on MakeHuman characters.
         Will enable users to rotate the human elbow with circle gestures.
@@ -534,7 +532,6 @@ class FingerCircleElbowSwivelRotator:
         
         # Calculate the vector between the shoulder and the wrist
         rotation_axis = self.wrist_location - self.shoulder_location
-        #angle = SWIVEL_ROTATION_SPEED * UPDATE_DELAY
         pointable_id = gesture["pointableIds"][0]   # we take only one ID for circle gestures.
         pointables = [p for p in leap_dict["pointables"] if p["id"] == pointable_id]
         assert(len(pointables) > 0)
@@ -714,11 +711,11 @@ class MakeHumanHandsDirectController:
         l_wrist = self.target_armature.pose.bones[MH_HAND_CONTROLLER_L]
         self.PARENT_L = l_wrist.matrix * l_wrist.matrix_basis.inverted()
         
-        # Save data for restoration
-        self.r_wrist_initial_rot = r_wrist.rotation_quaternion
-        self.r_wrist_initial_loc = r_wrist.location
-        self.l_wrist_initial_rot = l_wrist.rotation_quaternion
-        self.l_wrist_initial_loc = l_wrist.location
+        # Save data for restoration (We need a copy, not only a reference)
+        self.r_wrist_initial_rot = mathutils.Quaternion(r_wrist.rotation_quaternion)
+        self.r_wrist_initial_loc = mathutils.Vector(r_wrist.location)
+        self.l_wrist_initial_rot = mathutils.Quaternion(l_wrist.rotation_quaternion)
+        self.l_wrist_initial_loc = mathutils.Vector(l_wrist.location)
         
         self.l_hand_id = None
         self.r_hand_id = None
@@ -862,9 +859,9 @@ class MakeHumanHandsDirectController:
                 
                 # Convert the rotations in Blender orientation axes
                 if(self.isMirrored):
-                    rot = (blender_to_leap_mirror_rotmat * rot_mat * blender_to_leap_mirror_rotmat.inverted()).to_quaternion()
+                    rot = (blender_to_leap_mirror_rotmat.inverted() * rot_mat * blender_to_leap_mirror_rotmat).to_quaternion()
                 else:
-                    rot = (blender_to_leap_rotmat * rot_mat * blender_to_leap_rotmat.inverted()).to_quaternion()
+                    rot = (blender_to_leap_rotmat.inverted() * rot_mat * blender_to_leap_rotmat).to_quaternion()
 
                 # Compose with the global alignment to bring the character hand in frontal position.
                 rot = rot * GLOBAL_ALIGNMENT
@@ -896,7 +893,7 @@ class MakeHumanHandsDirectController:
 
                 # Add the default offset to position the hand in front of the character
                 pos += CONTROLLER_POS_OFFSET
-                print("controller offset=", str(hand_id), str(CONTROLLER_POS_OFFSET))
+                #print("controller offset=", str(hand_id), str(CONTROLLER_POS_OFFSET))
 
                 # Convert to local coordinates
                 pos = PARENT.inverted().to_quaternion() * pos
@@ -931,6 +928,11 @@ class MakeHumanFingersDirectController:
     
     target_armature = None
 
+
+    r_controllers_initial_values = []
+    l_controllers_initial_values = []
+
+
     def setTargetArmature(self, a):
         self.target_armature = a
     
@@ -939,11 +941,26 @@ class MakeHumanFingersDirectController:
     
     def reset(self):
         
-        pass
+        self.r_controllers_initial_values.clear()
+        for cname in MH_HAND_CONTROLLERS_R:
+            c = self.target_armature.pose.bones[cname]
+            self.r_controllers_initial_values.append(mathutils.Quaternion(c.rotation_quaternion))
+
+        for cname in MH_HAND_CONTROLLERS_L:
+            c = self.target_armature.pose.bones[cname]
+            self.l_controllers_initial_values.append(mathutils.Quaternion(c.rotation_quaternion))
+
     
     def restore(self):
 
-        pass
+        for cnum, cname in enumerate(MH_HAND_CONTROLLERS_R):
+            q = self.r_controllers_initial_values[cnum]
+            self.target_armature.pose.bones[cname].rotation_quaternion = q
+
+        for cnum, cname in enumerate(MH_HAND_CONTROLLERS_L):
+            q = self.l_controllers_initial_values[cnum]
+            self.target_armature.pose.bones[cname].rotation_quaternion = q
+
     
     def update(self, leap_dict):
         
@@ -1046,11 +1063,30 @@ class MakeHumanFingersDirectController:
 
         # For each finger, if the information is available
 
+#
+#
+#
+
+class MakeHumanElbowsDirectController:
+
+    isMirrored = False
+    
+    target_armature = None
+
+    def setTargetArmature(self, a):
+        self.target_armature = a
+    
+    def setMirrored(self, b):
+        self.isMirrored = b
+
+
+
 
 
 #
 # OPERATOR: LEAP MODAL
 #
+
 class LeapModal(bpy.types.Operator):
     """This is the Blender operator to start the Leap Motion timed modal listening as long as ESC isn't pressed."""
     
