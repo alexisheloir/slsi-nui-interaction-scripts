@@ -73,6 +73,7 @@ def register():
         kmi = km.keymap_items.new(LeapModal.bl_idname, HANDS_DIRECT_CONTROL_CHAR, 'PRESS', ctrl=False, shift=False)
         kmi.properties.isHandsDirectlyControlled = True
         kmi.properties.isFingersDirectlyControlled = True
+        kmi.properties.isElbowsDirectlyControlled = True
         function_selection_keymap_items.append((km, kmi))
         
         # H - Hands direct control (mirror mode)
@@ -80,7 +81,9 @@ def register():
         kmi.properties.isHandsDirectlyControlled = True
         kmi.properties.handsMirrorMode = True
         kmi.properties.isFingersDirectlyControlled = True
+        kmi.properties.isElbowsDirectlyControlled = True
         function_selection_keymap_items.append((km, kmi))
+
 
         
     print("ok")
@@ -96,14 +99,6 @@ def unregister():
         print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
         km.keymap_items.remove(kmi)
     function_selection_keymap_items.clear()
-
-
-    # for edit_mode in EDIT_MODES:
-    #     km = wm.keyconfigs.addon.keymaps[edit_mode]
-    #     for kmi in function_selection_keymap_items:
-    #         if(kmi in km.keymap_items.values()):
-    #             print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
-    #             km.keymap_items.remove(kmi)
     
     print("ok")
 

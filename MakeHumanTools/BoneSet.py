@@ -146,13 +146,10 @@ MH_HAND_BONES_R = [ b+".R" for b in MH_HAND_BONES_base]
 MH_HAND_BONES_L = [ b+".L" for b in MH_HAND_BONES_base]
 MH_HAND_BONES = MH_HAND_BONES_R + MH_HAND_BONES_L
 
-# MH_SHOULDER_BONE_base = "UpArmVec_"
-# MH_ELBOW_BONE_base = "LoArmVec_"
-# MH_WRIST_BONE_base = "Palm-1_"
 MH_SHOULDER_BONE_base = "upper_arm"
 MH_ELBOW_BONE_base = "forearm"
 MH_WRIST_BONE_base = "hand"
 
-
+MH_FOREARM_BONE_base = "forearm"
 
 MH_ALL_BONES = MH_HAND_BONES_R + MH_HAND_BONES_L

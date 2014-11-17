@@ -1080,7 +1080,86 @@ class MakeHumanElbowsDirectController:
         self.isMirrored = b
 
 
+    def reset(self):
 
+        self.elbow_r = self.target_armature.pose.bones[MH_ELBOW_CONTROLLER_R]
+        self.elbow_l = self.target_armature.pose.bones[MH_ELBOW_CONTROLLER_R]
+
+        self.hand_r = self.target_armature.pose.bones[MH_HAND_CONTROLLER_R]
+        self.hand_l = self.target_armature.pose.bones[MH_HAND_CONTROLLER_L]
+
+        self.elbow_r = self.target_armature.pose.bones[MH_ELBOW_CONTROLLER_R]
+        self.elbow_l = self.target_armature.pose.bones[MH_ELBOW_CONTROLLER_L]
+
+        self.forearm_bone_r = self.target_armature.pose.bones[MH_FOREARM_BONE_base+".R"]
+        self.forearm_bone_l = self.target_armature.pose.bones[MH_FOREARM_BONE_base+".L"]
+        
+        
+        self.r_elbow_initial_pos = mathutils.Vector(self.elbow_r.location)
+        self.l_elbow_initial_pos = mathutils.Vector(self.elbow_l.location)
+
+    
+    def restore(self):
+
+        self.elbow_r.location = self.r_elbow_initial_pos
+        self.elbow_l.location = self.l_elbow_initial_pos
+
+    
+    def update(self, leap_dict):
+        
+        if(not 'hands' in leap_dict):
+            return None
+    
+        # Infer which hand is left and which is right
+        hands = leap_dict["hands"]
+
+        rhand_id = None
+        rhand = None
+        lhand_id = None
+        lhand = None
+
+        # Take the indices of right and left hands
+        for h in hands:
+            if(h["type"] == "right"):
+                rhand = h
+                rhand_id = h["id"]
+            elif(h["type"] == "left"):
+                lhand = h
+                lhand_id = h["id"]
+
+        # If we work in mirror mode, let's swap them
+        if(self.isMirrored):
+            rhand_id, lhand_id = lhand_id, rhand_id
+            rhand, lhand = lhand, rhand
+
+
+        for hand, hand_controller, elbow_controller, forearm_bone in zip([rhand, lhand],
+                                            [self.hand_r, self.hand_l],
+                                            [self.elbow_r, self.elbow_l],
+                                            [self.forearm_bone_r, self.forearm_bone_l]):
+
+            if(hand == None):
+                continue
+
+            # Get the vector from the wrist to the elbow, in Leap space.
+            elbow_pos = mathutils.Vector(hand["elbow"])
+            wrist_pos = mathutils.Vector(hand["wrist"])
+            wrist_to_elbow_vect = elbow_pos - wrist_pos
+            wrist_to_elbow_vect.normalize()   # get only the unitary direction
+
+            # Transform the offset in Blender space
+            if(self.isMirrored):
+                wrist_to_elbow_vect = leap_to_blender_mirror_posmat * wrist_to_elbow_vect
+            else:
+                wrist_to_elbow_vect = leap_to_blender_posmat * wrist_to_elbow_vect
+
+            wrist_to_elbow_vect *= forearm_bone.length    # remodulate on forearm length
+
+            # absolute position for the elbow
+            elbow_pos = hand_controller.matrix.to_translation() + wrist_to_elbow_vect
+
+            # Set the absolute matrix
+            elbow_controller.matrix = mathutils.Matrix.Translation(elbow_pos)
 
 
 #
@@ -1104,6 +1183,7 @@ class LeapModal(bpy.types.Operator):
     isHandsDirectlyControlled = BoolProperty(name="hands_direct_control", description="Hands position is directly controlled by hands detected in Leap")
     handsMirrorMode = BoolProperty(name="hands_mirror_mode", description="Hands direct control is applied with the 'mirror' metaphor")
     isFingersDirectlyControlled = BoolProperty(name="fingers_direct_control", description="Fingers extension and orientation is directly controlled by hands detected in Leap")
+    isElbowsDirectlyControlled = BoolProperty(name="elbows_direct_control", description="Elbows position is directly controlled by hands and forearms detected in Leap")
     
     targetObjectName = StringProperty(name="target_object_name", description="The name of the object to manipulate. If None, the active object will be used", default="")
     targetPoseBoneName = StringProperty(name="target_posebone_name", description="The name of the posebone to manipulate. If None, the active posebone will be used", default="")
@@ -1139,6 +1219,7 @@ class LeapModal(bpy.types.Operator):
     elbow_swivel_rotator = FingerCircleElbowSwivelRotator()
     hands_direct_controller = MakeHumanHandsDirectController()
     fingers_direct_controller = MakeHumanFingersDirectController()
+    elbows_direct_controller = MakeHumanElbowsDirectController()
     
     timer = None
     
@@ -1305,6 +1386,15 @@ class LeapModal(bpy.types.Operator):
             self.fingers_direct_controller.setTargetArmature(arm)
             self.fingers_direct_controller.setMirrored(self.handsMirrorMode)
             self.fingers_direct_controller.reset()
+
+        if(self.isElbowsDirectlyControlled):
+            if(arm == None):
+                self.report({'ERROR'}, "No armature selected")
+                return {'CANCELLED'}
+
+            self.elbows_direct_controller.setTargetArmature(arm)
+            self.elbows_direct_controller.setMirrored(self.handsMirrorMode)
+            self.elbows_direct_controller.reset()
         
         self.report({'INFO'}, "Leap control starting")
         
@@ -1342,6 +1432,8 @@ class LeapModal(bpy.types.Operator):
                 self.hands_direct_controller.restore()
             if(self.isFingersDirectlyControlled):
                 self.fingers_direct_controller.restore()
+            if(self.isElbowsDirectlyControlled):
+                self.elbows_direct_controller.restore()
 
             for l in LeapModal.modalCallbacks:
                 if( hasattr(l, 'cancelled')):
@@ -1399,6 +1491,9 @@ class LeapModal(bpy.types.Operator):
 
                 if(self.isFingersDirectlyControlled):
                     self.fingers_direct_controller.update(leap_info)
+
+                if(self.isElbowsDirectlyControlled):
+                    self.elbows_direct_controller.update(leap_info)
 
             #
             # Update modal listeners
