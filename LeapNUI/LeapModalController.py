@@ -693,10 +693,8 @@ class MakeHumanHandsDirectController:
     # The parent matrix transformation of each Hand controller
     PARENT_R = None
     PARENT_L = None
-    
-    l_hand_id = None
-    r_hand_id = None
-    
+
+
     def setTargetArmature(self, a):
         self.target_armature = a
     
@@ -717,8 +715,6 @@ class MakeHumanHandsDirectController:
         self.l_wrist_initial_rot = mathutils.Quaternion(l_wrist.rotation_quaternion)
         self.l_wrist_initial_loc = mathutils.Vector(l_wrist.location)
         
-        self.l_hand_id = None
-        self.r_hand_id = None
         pass
     
     def restore(self):
@@ -732,104 +728,29 @@ class MakeHumanHandsDirectController:
         
         if(not 'hands' in leap_dict):
             return None
-        
-        # Infer which hand is left and which is right
+
+
+        rhand = None
+        lhand = None
+
         hands = leap_dict["hands"]
-        n_hands = len(hands)
-        if(n_hands > 2):
-            #print("Too may hands: " + str(n_hands))
-            
-            # Re-sort according to the y value of the palmPosition
-            hands.sort(key=lambda h: mathutils.Vector(h["palmPosition"]).length )
-            n_hands_to_keep = min(n_hands,2)
-            hands[:] = hands[0:n_hands_to_keep-1]
-        
-        n_hands = len(hands)
-        
-        assert n_hands <= 2
-        
-        # Check that the previously detected IDs are still valid
-        if(self.l_hand_id != None):
-            found = False
-            for h in hands:
-                if(self.l_hand_id == h["id"]):
-                    found = True
-                    break
-            if(not found):
-                self.l_hand_id = None
-        
-        if(self.r_hand_id != None):
-            found = False
-            for h in hands:
-                if(self.r_hand_id == h["id"]):
-                    found = True
-                    break
-            if(not found):
-                self.r_hand_id = None
-        
-        #print("--> LEFT ID=" + str(self.l_hand_id) + "\tRIGHT ID=" + str(self.r_hand_id))
-        
-        
-        # First guess. If there are two hands, use the position to infer left and right
-        if(n_hands == 2):
-            hand0_id = hands[0]["id"]
-            hand1_id = hands[1]["id"]
-            
-            # If no hands were previously identified
-            if(self.l_hand_id == None and self.r_hand_id == None):
-                hand0_pos = mathutils.Vector(hands[0]["palmPosition"])
-                hand1_pos = mathutils.Vector(hands[1]["palmPosition"])
-                
-                if(hand0_pos.x > hand1_pos.x):
-                    self.r_hand_id = hand0_id
-                    self.l_hand_id = hand1_id
-                else:
-                    self.r_hand_id = hand1_id
-                    self.l_hand_id = hand0_id
-            
-            elif(self.l_hand_id == None and self.r_hand_id != None):
-                # We already checked that if a hand id is not None, then its still in the list of hands
-                # So the hand with None id takes the free index
-                if(self.r_hand_id == hand0_id):
-                    self.l_hand_id = hand1_id
-                else:
-                    self.l_hand_id = hand0_id
-            elif(self.l_hand_id != None and self.r_hand_id == None):
-                if(self.l_hand_id == hand0_id):
-                    self.r_hand_id = hand1_id
-                else:
-                    self.r_hand_id = hand0_id
 
-        #print("LEFT ID=" + str(self.l_hand_id) + "\tRIGHT ID=" + str(self.r_hand_id))
-        
-        
-        #
-        # Find the array indices for the hands array corresponding to the desired hands IDs.
-        l_hand_index = None
-        r_hand_index = None
-        
-        for i,h in enumerate(hands):
-            if(self.l_hand_id == h["id"]):
-                l_hand_index = i
-            if(self.r_hand_id == h["id"]):
-                r_hand_index = i
+        # Take the indices of right and left hands
+        for h in hands:
+            if(h["type"] == "right"):
+                rhand = h
+            elif(h["type"] == "left"):
+                lhand = h
 
-        # for each hand: if we found the id we also have the array index.
-        assert( (self.l_hand_id == None and l_hand_index == None) or (self.l_hand_id != None and l_hand_index != None) )
-        assert( (self.r_hand_id == None and r_hand_index == None) or (self.r_hand_id != None and r_hand_index != None) )
-
-        #print("LEFT INDEX=" + str(l_hand_index) + "\tRIGHT INDEX=" + str(r_hand_index))
 
         if(self.isMirrored):
-            hand_ids = [self.r_hand_id, self.l_hand_id]
-            hand_indices = [r_hand_index, l_hand_index]
+            hand_refs = [rhand, lhand]
         else:
-            hand_ids = [self.l_hand_id, self.r_hand_id]
-            hand_indices = [l_hand_index, r_hand_index]
+            hand_refs = [lhand, rhand]
 
-        for hand_id, hand_index, GLOBAL_ALIGNMENT, PARENT, WRIST_BONE, CONTROLLER_POS_OFFSET, WRIST_TO_HAND_OFFSET in zip(
-                                                                                                        hand_ids,
-                                                                                                        hand_indices,
+
+        for hand, GLOBAL_ALIGNMENT, PARENT, WRIST_BONE, CONTROLLER_POS_OFFSET, WRIST_TO_HAND_OFFSET in zip(
+                                                                                                        hand_refs,
                                                                                                         [self.GLOBAL_ALIGNMENT_L, self.GLOBAL_ALIGNMENT_R],
                                                                                                         [self.PARENT_L, self.PARENT_R],
                                                                                                         [MH_HAND_CONTROLLER_L, MH_HAND_CONTROLLER_R],
@@ -837,69 +758,69 @@ class MakeHumanHandsDirectController:
                                                                                                         [WRIST_TO_HAND_OFFSET_L, WRIST_TO_HAND_OFFSET_R]) :
             
             
-            if(hand_id != None):
-                hand = hands[hand_index]
+            if(hand == None):
+                continue 
                 
-                #
-                # ROTATION
-                #
+            #
+            # ROTATION
+            #
 
-                # When the hand is straight over the Leap, the resulting quaternion must be Identity.
-                # This calc is made in Leap/OpenGL axes space.
-                h_z = - mathutils.Vector(hand["direction"])
-                h_y = - mathutils.Vector(hand["palmNormal"])
-                h_x = h_y.cross(h_z)
-                
-                # Build the rotation matrix of the hand using the data of the 3 orthogonal vectors (hand direction, palm normal, and their outgoing cross product)
-                rot_mat = mathutils.Matrix.Rotation(0, 3, 'X')
-                rot_mat[0][0], rot_mat[1][0], rot_mat[2][0] = h_x[0], h_x[1], h_x[2]
-                rot_mat[0][1], rot_mat[1][1], rot_mat[2][1] = h_y[0], h_y[1], h_y[2]
-                rot_mat[0][2], rot_mat[1][2], rot_mat[2][2] = h_z[0], h_z[1], h_z[2]
-                
-                
-                # Convert the rotations in Blender orientation axes
-                if(self.isMirrored):
-                    rot = (blender_to_leap_mirror_rotmat.inverted() * rot_mat * blender_to_leap_mirror_rotmat).to_quaternion()
-                else:
-                    rot = (blender_to_leap_rotmat.inverted() * rot_mat * blender_to_leap_rotmat).to_quaternion()
+            # When the hand is straight over the Leap, the resulting quaternion must be Identity.
+            # This calc is made in Leap/OpenGL axes space.
+            h_z = - mathutils.Vector(hand["direction"])
+            h_y = - mathutils.Vector(hand["palmNormal"])
+            h_x = h_y.cross(h_z)
+            
+            # Build the rotation matrix of the hand using the data of the 3 orthogonal vectors (hand direction, palm normal, and their outgoing cross product)
+            rot_mat = mathutils.Matrix.Rotation(0, 3, 'X')
+            rot_mat[0][0], rot_mat[1][0], rot_mat[2][0] = h_x[0], h_x[1], h_x[2]
+            rot_mat[0][1], rot_mat[1][1], rot_mat[2][1] = h_y[0], h_y[1], h_y[2]
+            rot_mat[0][2], rot_mat[1][2], rot_mat[2][2] = h_z[0], h_z[1], h_z[2]
+            
+            
+            # Convert the rotations in Blender orientation axes
+            if(self.isMirrored):
+                rot = (blender_to_leap_mirror_rotmat.inverted() * rot_mat * blender_to_leap_mirror_rotmat).to_quaternion()
+            else:
+                rot = (blender_to_leap_rotmat.inverted() * rot_mat * blender_to_leap_rotmat).to_quaternion()
 
-                # Compose with the global alignment to bring the character hand in frontal position.
-                rot = rot * GLOBAL_ALIGNMENT
+            # Compose with the global alignment to bring the character hand in frontal position.
+            rot = rot * GLOBAL_ALIGNMENT
 
-                # Convert to local system
-                rot = PARENT.inverted().to_quaternion() * rot
+            # Convert to local system
+            rot = PARENT.inverted().to_quaternion() * rot
 
-                self.target_armature.pose.bones[WRIST_BONE].rotation_quaternion = rot
+            self.target_armature.pose.bones[WRIST_BONE].rotation_quaternion = rot
 
-                
-                #
-                # POSITION
-                #
+            
+            #
+            # POSITION
+            #
 
-                pos = mathutils.Vector(hand["palmPosition"])
+            pos = mathutils.Vector(hand["palmPosition"])
 
-                # Scale from millimeters to decimeters in MakeHuman space
-                pos *= 0.01
+            # Scale from millimeters to decimeters in MakeHuman space
+            pos *= 0.01
 
-                # Rotate axes from OpenGL to Blender
-                if(self.isMirrored):
-                    pos = leap_to_blender_mirror_posmat * pos
-                else:
-                    pos = leap_to_blender_posmat * pos
-                
-                #print("Absolute space: " + str(pos))
-                # Align the hand palm center to the hand controller center
-                pos = pos - WRIST_TO_HAND_OFFSET
+            # Rotate axes from OpenGL to Blender
+            if(self.isMirrored):
+                pos = leap_to_blender_mirror_posmat * pos
+            else:
+                pos = leap_to_blender_posmat * pos
+            
+            #print("Absolute space: " + str(pos))
+            # Align the hand palm center to the hand controller center
+            pos = pos - WRIST_TO_HAND_OFFSET
 
-                # Add the default offset to position the hand in front of the character
-                pos += CONTROLLER_POS_OFFSET
-                #print("controller offset=", str(hand_id), str(CONTROLLER_POS_OFFSET))
+            # Add the default offset to position the hand in front of the character
+            pos += CONTROLLER_POS_OFFSET
+            #print("controller offset=", str(hand_id), str(CONTROLLER_POS_OFFSET))
 
-                # Convert to local coordinates
-                pos = PARENT.inverted().to_quaternion() * pos
-                #print("Local space: " + str(pos))
+            # Convert to local coordinates
+            pos = PARENT.inverted().to_quaternion() * pos
+            #print("Local space: " + str(pos))
 
-                self.target_armature.pose.bones[WRIST_BONE].location = pos
+            self.target_armature.pose.bones[WRIST_BONE].location = pos
 
         # RECORD (eventually)
         if(bpy.context.scene.tool_settings.use_keyframe_insert_auto):
@@ -928,7 +849,8 @@ class MakeHumanFingersDirectController:
     
     target_armature = None
 
-
+    # Each of these vectors will contain 5 elements. Each element is the rotation quaternion of the controller at the controller reset.
+    # The order is from thumb to pinkie.
     r_controllers_initial_values = []
     l_controllers_initial_values = []
 
