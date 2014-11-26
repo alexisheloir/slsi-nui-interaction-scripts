@@ -596,7 +596,7 @@ def applyPose(armature, pose_library_name, hand_bone_names, pose_number, try_rec
 
 
 def applyBoneRotations(armature, rotations, try_record):
-    """Takes as input the reference to the armature, and a dictionary with keys=bone_names, and values a 4-element list woth the quaternion values [w x y z]."""
+    """Takes as input the reference to the armature, and a dictionary with keys=bone_names, and values a 4-element list with the quaternion values [w x y z]."""
 
     bones = armature.pose.bones
     for bone_name in rotations:

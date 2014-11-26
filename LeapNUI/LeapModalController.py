@@ -749,7 +749,7 @@ class MakeHumanHandsDirectController:
             hand_refs = [lhand, rhand]
 
 
-        for hand, GLOBAL_ALIGNMENT, PARENT, WRIST_BONE, CONTROLLER_POS_OFFSET, WRIST_TO_HAND_OFFSET in zip(
+        for hand, GLOBAL_ALIGNMENT, PARENT, hand_controller_name, CONTROLLER_POS_OFFSET, WRIST_TO_HAND_OFFSET in zip(
                                                                                                         hand_refs,
                                                                                                         [self.GLOBAL_ALIGNMENT_L, self.GLOBAL_ALIGNMENT_R],
                                                                                                         [self.PARENT_L, self.PARENT_R],
@@ -760,7 +760,10 @@ class MakeHumanHandsDirectController:
             
             if(hand == None):
                 continue 
-                
+
+            hand_controller = self.target_armature.pose.bones[hand_controller_name]
+
+            
             #
             # ROTATION
             #
@@ -790,7 +793,7 @@ class MakeHumanHandsDirectController:
             # Convert to local system
             rot = PARENT.inverted().to_quaternion() * rot
 
-            self.target_armature.pose.bones[WRIST_BONE].rotation_quaternion = rot
+            hand_controller.rotation_quaternion = rot
 
             
             #
@@ -820,21 +823,14 @@ class MakeHumanHandsDirectController:
             pos = PARENT.inverted().to_quaternion() * pos
             #print("Local space: " + str(pos))
 
-            self.target_armature.pose.bones[WRIST_BONE].location = pos
+            hand_controller.location = pos
 
-        # RECORD (eventually)
-        if(bpy.context.scene.tool_settings.use_keyframe_insert_auto):
-            frame = bpy.context.scene.frame_current
-            # for the wrists
-            for bone_name in [MH_HAND_CONTROLLER_L, MH_HAND_CONTROLLER_R]:
-                #print("Inserting key at frame "+str(frame))
-                self.target_armature.pose.bones[bone_name].keyframe_insert(data_path="rotation_quaternion", frame=frame)
-                self.target_armature.pose.bones[bone_name].keyframe_insert(data_path="location", frame=frame)
+            # RECORD (eventually)
+            if(bpy.context.scene.tool_settings.use_keyframe_insert_auto):
+                frame = bpy.context.scene.frame_current
+                hand_controller.keyframe_insert(data_path="rotation_quaternion", frame=frame)
+                hand_controller.keyframe_insert(data_path="location", frame=frame)
             
-            # take care of elbow controllers
-            for bone_name in [MH_ELBOW_CONTROLLER_R, MH_ELBOW_CONTROLLER_L]:
-                self.target_armature.pose.bones[bone_name].keyframe_insert(data_path="location", frame=frame)
-
 
         pass # end update
 
@@ -980,10 +976,12 @@ class MakeHumanFingersDirectController:
             controller = self.target_armature.pose.bones[ controller_names[finger_type] ]
             controller.rotation_quaternion = finger_q
 
+            # RECORD (eventually)
+            if(bpy.context.scene.tool_settings.use_keyframe_insert_auto):
+                frame = bpy.context.scene.frame_current
+                controller.keyframe_insert(data_path="rotation_quaternion", frame=frame)
 
 
-
-        # For each finger, if the information is available
 
 #
 #
@@ -1082,6 +1080,12 @@ class MakeHumanElbowsDirectController:
 
             # Set the absolute matrix
             elbow_controller.matrix = mathutils.Matrix.Translation(elbow_pos)
+
+            # RECORD (eventually)
+            if(bpy.context.scene.tool_settings.use_keyframe_insert_auto):
+                frame = bpy.context.scene.frame_current                
+                elbow_controller.keyframe_insert(data_path="location", frame=frame)
+
 
 
 #
