@@ -38,8 +38,8 @@ from MakeHumanTools.BoneSet import MH_HAND_BONES_R
 LHAND_ACTIVATION_CHAR = 'D'
 RHAND_ACTIVATION_CHAR = 'A'
 
-LHAND_POSE_LIBRARY_NAME = "pose_library_L"
-RHAND_POSE_LIBRARY_NAME = "pose_library_R"
+LHAND_POSE_LIBRARY_NAME = "handshape_lib_L"
+RHAND_POSE_LIBRARY_NAME = "handshape_lib_R"
 
 # Delay between TIMER events when entering the modal command mode. In seconds.
 UPDATE_DELAY = 0.04
@@ -100,8 +100,14 @@ class HandShapeSelector(bpy.types.Operator):
     # The selection number for the highlighted item, in range [0,len(selectable_items)-1]
     selection_num = -1
     
+    # Store rotations to later be able to restore original values.
     r_hand_initial_rotations = None
     l_hand_initial_rotations = None
+
+    # We want to draw the information only in the area/space/region where the function has been activated.
+    # So, in this variable we will store the reference to the space (bpy.context.area.spaces.active) that was active when the user activated the controls.
+    execution_active_space = None
+
     
     def __init__(self):
         self.leap_receiver = LeapReceiver.getSingleton()
@@ -181,6 +187,8 @@ class HandShapeSelector(bpy.types.Operator):
         else:
             self.l_hand_initial_rotations = retrieveBoneRotations(self.selected_armature, MH_HAND_BONES_L)
 
+        # Store the reference to the space where this command was activated. So that we render only there.
+        self.execution_active_space = context.area.spaces.active
         
         # Retrieve entries from the pose library
         action = bpy.data.actions[self.POSE_LIBRARY_NAME]
@@ -323,7 +331,7 @@ class HandShapeSelector(bpy.types.Operator):
 
             if(scroll_factor != 0.0):
                 delta_scroll = - scroll_factor * SCROLL_MAX_SPEED * dt
-                print("Scrolling f "+str(scroll_factor) + " -> " + str(delta_scroll))
+                #print("Scrolling f "+str(scroll_factor) + " -> " + str(delta_scroll))
                 self.selection_window_first_item += delta_scroll
             
                 if(self.selection_window_first_item<0):
@@ -379,6 +387,11 @@ class HandShapeSelector(bpy.types.Operator):
     BACKGROUND_COLOR = (0.15,0.1,0.1,0.9)
 
     def draw_callback_px(self, context):
+        if(self.execution_active_space != None):
+            if(not (self.execution_active_space.as_pointer() == context.area.spaces.active.as_pointer()) ):
+                #print("Skipping...")
+                return
+
         #self.draw_callback_px_moving_text(context)
         self.draw_callback_px_moving_arrow(context)
 
@@ -591,7 +604,7 @@ def applyBoneRotations(armature, rotations, try_record):
         # e.g. bpy.data.objects['Human1-mhxrig-expr-advspine'].pose.bones['Finger-2-1_L'].rotation_quaternion = 1,0,0,0
         bones[bone_name].rotation_quaternion = rotations[bone_name]
 
-        print("Checking rec for "+bone_name)
+        #print("Checking rec for "+bone_name)
         # RECORD (eventually)
         if(try_record and bpy.context.scene.tool_settings.use_keyframe_insert_auto):
             print("Recording keyframe for "+bone_name)
@@ -735,13 +748,13 @@ def register():
     km = wm.keyconfigs.addon.keymaps.new(name='Pose', space_type='EMPTY')
     kmi = km.keymap_items.new(HandShapeSelector.bl_idname, RHAND_ACTIVATION_CHAR, 'PRESS', ctrl=True, shift=False)
     kmi.properties.use_right_hand = True
-    hand_selection_keymap_items.append(kmi)
-    
+    hand_selection_keymap_items.append((km, kmi))
+
     kmi = km.keymap_items.new(HandShapeSelector.bl_idname, LHAND_ACTIVATION_CHAR, 'PRESS', ctrl=True, shift=False)
     kmi.properties.use_right_hand = False
     #kmi.properties.isRotating = True
     #kmi.properties.translationUseFinger = True
-    hand_selection_keymap_items.append(kmi)
+    hand_selection_keymap_items.append((km, kmi))
  
     pass
 
@@ -750,14 +763,8 @@ def unregister():
     global icon_pointing_finger_missing
 
     # handle the keymap
-    wm = bpy.context.window_manager
-    for edit_mode in EDIT_MODES:
-        km = wm.keyconfigs.addon.keymaps[edit_mode]
-        for kmi in hand_selection_keymap_items:
-            if(kmi in km.keymap_items.values()):
-                print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
-                km.keymap_items.remove(kmi)
-    
+    for km, kmi in hand_selection_keymap_items:
+        km.hand_selection_keymap_items.remove(kmi)
     hand_selection_keymap_items.clear()
 
     print("ok")
