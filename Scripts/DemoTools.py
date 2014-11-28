@@ -59,7 +59,7 @@ class DemoCaptureView(bpy.types.Operator):
         # auto key: off
         context.scene.tool_settings.use_keyframe_insert_auto = False
         
-        bpy.context.window.screen = bpy.data.screens['Demo Capture View']
+        bpy.context.window.screen = bpy.data.screens['Capture View']
         return {'FINISHED'}
 
 
@@ -82,7 +82,7 @@ class DemoEditView(bpy.types.Operator):
         # auto key: on
         context.scene.tool_settings.use_keyframe_insert_auto = True
         
-        bpy.context.window.screen = bpy.data.screens['Demo Edit View']
+        bpy.context.window.screen = bpy.data.screens['Edit View']
         return {'FINISHED'}
 
 
@@ -104,9 +104,9 @@ class FreePlay(bpy.types.Operator):
         
         #
         # Run operators
-        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True)
+        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=True, isElbowsDirectlyControlled=True)
         # do not instantiate another timer if another modal command already did.
-        bpy.ops.object.faceshift_modal(instantiateTimer=False)
+        # TODO - bpy.ops.object.faceshift_modal(instantiateTimer=False)
         
         bpy.ops.scene.signrecdemo_demoviewcapture()
         
@@ -189,9 +189,9 @@ class StartRecording(bpy.types.Operator):
         
         #
         # Run operators
-        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True)
+        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=True, isElbowsDirectlyControlled=True)
         # do not instantiate another timer if another modal command already did.
-        bpy.ops.object.faceshift_modal(instantiateTimer=False)
+        # TODO - bpy.ops.object.faceshift_modal(instantiateTimer=False)
         # run the ESC catcher to stop the animation play
         bpy.ops.scene.signrecdemo_playpauser()
         

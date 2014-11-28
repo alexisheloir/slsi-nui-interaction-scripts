@@ -206,7 +206,7 @@ class ObjectTranslator:
             self.target_object.location = new_loc
     
 
-    def handPosToTargetSpace(self, pos, last_pos):
+    def handPosToTargetSpace(self, pos):
         if(self.pointable_start_location == None):
             self.pointable_start_location = pos
         
@@ -275,7 +275,7 @@ class ObjectTranslator:
         if(self.pointable_last_location == None):
             self.pointable_last_location = pos
 
-        new_loc = self.handPosToTargetSpace(pos, self.pointable_last_location)
+        new_loc = self.handPosToTargetSpace(pos)
 
         self.pointable_last_location = pos
 

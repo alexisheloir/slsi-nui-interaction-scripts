@@ -33,7 +33,8 @@ from LeapNUI.LeapReceiver import PointableSelector
 
 from MakeHumanTools.BoneSet import MH_HAND_BONES_L
 from MakeHumanTools.BoneSet import MH_HAND_BONES_R
-
+from MakeHumanTools.BoneSet import MH_HAND_CONTROLLERS_L
+from MakeHumanTools.BoneSet import MH_HAND_CONTROLLERS_R
 
 LHAND_ACTIVATION_CHAR = 'D'
 RHAND_ACTIVATION_CHAR = 'A'
@@ -101,8 +102,7 @@ class HandShapeSelector(bpy.types.Operator):
     selection_num = -1
     
     # Store rotations to later be able to restore original values.
-    r_hand_initial_rotations = None
-    l_hand_initial_rotations = None
+    hand_initial_rotations = None
 
     # We want to draw the information only in the area/space/region where the function has been activated.
     # So, in this variable we will store the reference to the space (bpy.context.area.spaces.active) that was active when the user activated the controls.
@@ -174,18 +174,25 @@ class HandShapeSelector(bpy.types.Operator):
         if(self.use_right_hand):
             self.POSE_LIBRARY_NAME = RHAND_POSE_LIBRARY_NAME
             self.HAND_BONE_NAMES = MH_HAND_BONES_R
+            self.controller_names = MH_HAND_CONTROLLERS_R
         else:
             self.POSE_LIBRARY_NAME = LHAND_POSE_LIBRARY_NAME
             self.HAND_BONE_NAMES = MH_HAND_BONES_L
-        
+            self.controller_names = MH_HAND_CONTROLLERS_L
+
         if(not self.POSE_LIBRARY_NAME in bpy.data.actions):
             self.report({'ERROR'}, "No action library named '" + self.POSE_LIBRARY_NAME + "' found")
             return {"CANCELLED"}
 
-        if(self.use_right_hand):
-            self.r_hand_initial_rotations = retrieveBoneRotations(self.selected_armature, MH_HAND_BONES_R)
-        else:
-            self.l_hand_initial_rotations = retrieveBoneRotations(self.selected_armature, MH_HAND_BONES_L)
+        self.hand_initial_rotations = retrieveBoneRotations(self.selected_armature, self.HAND_BONE_NAMES)
+
+
+        # Store the initial rotation fo the controllers
+        self.finger_controllers_initial_rots = retrieveBoneRotations(self.selected_armature, self.controller_names)
+
+        # Reset the controllers to identity rotation (default position)
+        resetFingerControllers(armature=self.selected_armature, controller_names=self.controller_names, try_record=False) 
+
 
         # Store the reference to the space where this command was activated. So that we render only there.
         self.execution_active_space = context.area.spaces.active
@@ -222,10 +229,8 @@ class HandShapeSelector(bpy.types.Operator):
         
         if event.type == 'ESC':
             # Restore hand rotations
-            if(self.use_right_hand):
-                applyBoneRotations(self.selected_armature, self.r_hand_initial_rotations, try_record=False)
-            else:
-                applyBoneRotations(self.selected_armature, self.l_hand_initial_rotations, try_record=False)
+            applyBoneRotations(self.selected_armature, self.hand_initial_rotations, try_record=False)
+            applyBoneRotations(self.selected_armature, self.finger_controllers_initial_rots, try_record=False)
             return self.cancel(context)
         
         if (event.type == RHAND_ACTIVATION_CHAR or event.type == LHAND_ACTIVATION_CHAR) and event.value == "PRESS":
@@ -237,6 +242,7 @@ class HandShapeSelector(bpy.types.Operator):
                 return {"CANCELLED"}
             else:
                 applyPose(armature=self.selected_armature, pose_library_name=self.POSE_LIBRARY_NAME, hand_bone_names=self.HAND_BONE_NAMES, pose_number=n, try_record=True)
+                resetFingerControllers(armature=self.selected_armature, controller_names=self.controller_names, try_record=True) 
                 return {"FINISHED"}
         
         dict = self.leap_receiver.getLeapDict()
@@ -610,6 +616,30 @@ def applyBoneRotations(armature, rotations, try_record):
             print("Recording keyframe for "+bone_name)
             frame = bpy.context.scene.frame_current
             bones[bone_name].keyframe_insert(data_path="rotation_quaternion", frame=frame)
+
+
+# def retrieveFingerControllerRotations(armature, controller_names):
+#     """Returns a list of rotations. In the order procided by the controller names."""
+#     out = []
+
+#     bones = armature.pose.bones
+#     for cname in controller_names:
+#         controller = bones[cname]
+#         out.append(mathutils.Quaternion(controller.rotation_quaternion))
+
+#     return out
+
+
+def resetFingerControllers(armature, controller_names, try_record):
+
+    bones = armature.pose.bones
+    for cname in controller_names:
+        controller = bones[cname]
+        controller.rotation_quaternion = 1,0,0,0
+
+        if(try_record and bpy.context.scene.tool_settings.use_keyframe_insert_auto):
+            frame = bpy.context.scene.frame_current
+            controller.keyframe_insert(data_path="rotation_quaternion", frame=frame)
 
 
 

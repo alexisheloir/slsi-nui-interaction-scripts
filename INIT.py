@@ -40,11 +40,6 @@ FILES = [
 scene_path = bpy.data.scenes.data.filepath
 scene_dir, scene_file = os.path.split(scene_path)
 
-
-for f in FILES:
-    script_path = scene_dir + "/" + f
-    print ("Executing '" + f + "'")
-    bpy.ops.script.python_file_run(filepath=script_path)    
     
 
 #
@@ -71,3 +66,10 @@ import HeadCameraControl
 HeadCameraControl.register()
 
 
+for f in FILES:
+    script_path = scene_dir + "/" + f
+    print ("Executing '" + f + "'")
+    bpy.ops.script.python_file_run(filepath=script_path)    
+
+# Switch to Demo View
+bpy.context.window.screen = bpy.data.screens['Capture View']
