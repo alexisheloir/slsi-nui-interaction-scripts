@@ -73,6 +73,17 @@ MH_FACIAL_CONTROLLERS = [
 
                   ]
 
+# 4 controllers for the eyelids. Listed from top to bottom, right first.
+# Don't change the order! It matters for some applications.
+MH_EYELID_CONTROLLERS = [
+			"uplid.R",
+			"uplid.L",
+			"lolid.R",
+			"lolid.L",
+]
+
+
+
 MH_LEG_CONTROLLER_R = "foot.ik.R"
 MH_LEG_CONTROLLER_L = "foot.ik.L"
 MH_KNEE_CONTROLLER_R = "knee.pt.ik.R"
