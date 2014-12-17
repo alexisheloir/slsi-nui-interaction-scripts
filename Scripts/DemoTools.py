@@ -106,7 +106,7 @@ class FreePlay(bpy.types.Operator):
         # Run operators
         bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=True, isElbowsDirectlyControlled=True)
         # do not instantiate another timer if another modal command already did.
-        # TODO - bpy.ops.object.faceshift_modal(instantiateTimer=False)
+        bpy.ops.object.faceshift_modal(instantiateTimer=False)
         
         bpy.ops.scene.signrecdemo_demoviewcapture()
         
@@ -191,7 +191,7 @@ class StartRecording(bpy.types.Operator):
         # Run operators
         bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=True, isElbowsDirectlyControlled=True)
         # do not instantiate another timer if another modal command already did.
-        # TODO - bpy.ops.object.faceshift_modal(instantiateTimer=False)
+        bpy.ops.object.faceshift_modal(instantiateTimer=False)
         # run the ESC catcher to stop the animation play
         bpy.ops.scene.signrecdemo_playpauser()
         

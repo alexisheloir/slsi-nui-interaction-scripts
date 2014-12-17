@@ -593,19 +593,23 @@ def insert_mh_keyframe(armature_name, frame):
     
     bones = bpy.data.objects[armature_name].pose.bones
 
-    # Reset all controllers position
-    for ctrl in mh_facial_controls_name:
+    # Face controllers location
+    for ctrl in BoneSet.MH_FACIAL_CONTROLLERS:
         bones[ctrl].keyframe_insert(data_path='location', frame=frame)
+
+    # Eyelids rotation
+    for ctrl in BoneSet.MH_EYELID_CONTROLLERS:
+        bones[ctrl].keyframe_insert(data_path='rotation_euler', frame=frame)
         
-    # Reset Jaw rotation
+    # Jaw rotation
     bones[BoneSet.MH_CONTROLLER_JAW].rotation_mode = 'XYZ'
     bones[BoneSet.MH_CONTROLLER_JAW].keyframe_insert(data_path='rotation_euler', frame=frame)
     
-    # Reset head rotation
+    # Head rotation
     bones[BoneSet.MH_CONTROLLER_NECK].rotation_mode = 'QUATERNION'
     bones[BoneSet.MH_CONTROLLER_NECK].keyframe_insert(data_path='rotation_quaternion', frame=frame)
 
-    # Reset Eyes rotation
+    # Eyes rotation
     bones[BoneSet.MH_CONTROLLER_GAZE].keyframe_insert(data_path='location', frame=frame)
 
 
@@ -615,15 +619,19 @@ def delete_mh_keyframe(armature_name, frame):
 
     bones = bpy.data.objects[armature_name].pose.bones
 
-    # Reset all controllers position
-    for ctrl in mh_facial_controls_name:
+    # Face controllers location
+    for ctrl in BoneSet.MH_FACIAL_CONTROLLERS:
         bones[ctrl].keyframe_delete(data_path='location', frame=frame)
+
+    # Eyelids rotation
+    for ctrl in BoneSet.MH_EYELID_CONTROLLERS:
+        bones[ctrl].keyframe_delete(data_path='rotation_euler', frame=frame)
         
-    # Reset Jaw rotation
+    # Jaw rotation
     bones[BoneSet.MH_CONTROLLER_JAW].rotation_mode = 'XYZ'
     bones[BoneSet.MH_CONTROLLER_JAW].keyframe_delete(data_path='rotation_euler', frame=frame)
     
-    # Reset head rotation
+    # Head rotation
     bones[BoneSet.MH_CONTROLLER_NECK].rotation_mode = 'QUATERNION'
     bones[BoneSet.MH_CONTROLLER_NECK].keyframe_delete(data_path='rotation_quaternion', frame=frame)
 
