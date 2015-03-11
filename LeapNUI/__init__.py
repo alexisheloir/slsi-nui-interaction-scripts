@@ -50,7 +50,6 @@ class LeapNUIControlPanel(bpy.types.Panel):
         self.layout.prop(data=bpy.context.window_manager, property="leap_nui_longitudinal_mode")
         self.layout.prop(data=bpy.context.window_manager, property="leap_nui_body_selection_active", toggle=True)
         self.layout.prop(data=bpy.context.window_manager, property="leap_nui_function_selection_active", toggle=True)
-#        self.layout.prop(data=bpy.context.window_manager, property="leap_nui_keyboardless_active", toggle=True)
         if(bpy.context.window_manager.leap_nui_keyboardless_active):
             target = "OFF"
         else:
@@ -58,6 +57,7 @@ class LeapNUIControlPanel(bpy.types.Panel):
         self.layout.operator(operator="wm.leap_nui_keyboardless_control_switch", text="Turn "+target+" Keyboardless Control")
         self.layout.prop(data=bpy.context.window_manager, property="leap_keyboardless_grab_mode")
         self.layout.prop(data=bpy.context.window_manager, property="leap_keyboardless_grasp_operation")
+        self.layout.prop(data=bpy.context.window_manager, property="leap_hand_shape_selector_finger_extension_filter")
 
 
 def toggleBodySelectionKeymaps(self, context):
@@ -85,6 +85,8 @@ def register():
     bpy.types.WindowManager.leap_nui_function_selection_active = bpy.props.BoolProperty(name="Function Selection", description="Switch the use of the shotcuts to manipulate objects using the LeapMotion", default=False, options={'SKIP_SAVE'}, update=toggleFunctionSelectionKeymaps)
 
     bpy.types.WindowManager.leap_nui_longitudinal_mode = bpy.props.BoolProperty(name="Longitudinal Leap", description="Check if you use the Leap is longitudinal mode, rotated 90 degrees, with the cable going away from the user", default=False, options={'SKIP_SAVE'})
+
+    bpy.types.WindowManager.leap_nui_keyboardless_active = bpy.props.BoolProperty(name="Keyboardless Activation", description="Switch the use of the keyboardless mode to activate the LeapMotion", default=False, options={'SKIP_SAVE'})
 
     bpy.types.WindowManager.leap_nui_keyboardless_active = bpy.props.BoolProperty(name="Keyboardless Activation", description="Switch the use of the keyboardless mode to activate the LeapMotion", default=False, options={'SKIP_SAVE'})
 

@@ -30,6 +30,7 @@ import re
 
 from LeapNUI.LeapReceiver import LeapReceiver
 from LeapNUI.LeapReceiver import PointableSelector
+from LeapNUI.LeapReceiver import HandSelector
 
 from MakeHumanTools.BoneSet import MH_HAND_BONES_L
 from MakeHumanTools.BoneSet import MH_HAND_BONES_R
@@ -45,8 +46,8 @@ RHAND_POSE_LIBRARY_NAME = "handshape_lib_R"
 # Delay between TIMER events when entering the modal command mode. In seconds.
 UPDATE_DELAY = 0.04
 
-SELECTION_MIN_Y = 50
-SELECTION_MAX_Y = 120
+SELECTION_MIN_Y = 100
+SELECTION_MAX_Y = 250
 
 MAX_DISPLAY_ELEMENTS = 10
 
@@ -82,19 +83,20 @@ class HandShapeSelector(bpy.types.Operator):
     leap_receiver = None
 
     pointable_selector = None
+    hand_selector = None
 
 
     # The list of items to select
     selectable_items = []
     
 
-    # Set to True in modal() if a finger is visible and within the vertical range
-    finger_visible = False
+    # Set to True in modal() if a finger (or hand) is visible and within the vertical range
+    selector_visible = False
     
     # A normalized float factor of the y position of the finger, in range [0,1). Set in modal().
     selection_factor = -1
     
-    # The number of the first item to select in the selectino window
+    # The number of the first item to select in the selection window
     # range [0, len(selectable_items) - MAX_DISPLAY_ELEMENTS - 1]
     selection_window_first_item = 0
 
@@ -205,8 +207,9 @@ class HandShapeSelector(bpy.types.Operator):
             print("Found marker " + str(marker.name) + " at frame " + str(marker.frame))
             self.selectable_items.append(marker.name)
             
-        #self.leap_receiver = LeapReceiver.getSingleton()
+
         self.pointable_selector = PointableSelector()
+        self.hand_selector = HandSelector()
 
         context.window_manager.modal_handler_add(self)
         self.addHandlers(context)
@@ -216,6 +219,8 @@ class HandShapeSelector(bpy.types.Operator):
     
 
     last_modal_time = None
+
+
 
     def modal(self, context, event):
         #FINISHED, CANCELLED, RUNNING_MODAL
@@ -245,88 +250,135 @@ class HandShapeSelector(bpy.types.Operator):
                 resetFingerControllers(armature=self.selected_armature, controller_names=self.controller_names, try_record=True) 
                 return {"FINISHED"}
         
-        dict = self.leap_receiver.getLeapDict()
-        if(dict == None):
+        leap_dict = self.leap_receiver.getLeapDict()
+        if(leap_dict == None):
             print("No dictionary yet...")
             return {"RUNNING_MODAL"}
 
+
+        # TODO, move in properties, expose in GUI
+
+        if(bpy.context.window_manager.leap_hand_shape_selector_finger_extension_filter):
+            FINGER_EXTENSION_FILTER = True
+            FINGER_TIP_SELECTION = False
+        else:
+            FINGER_EXTENSION_FILTER = False
+            FINGER_TIP_SELECTION = True
+
             
-        #print(str(dict))
-        p = self.pointable_selector.select(dict)
+        #print(str(leap_dict))
+        p = self.pointable_selector.select(leap_dict)
+        h = self.hand_selector.select(leap_dict)
         #print("Current pointable = " + str(p))
+        #print("Current hand = " + str(h))
+
         
         # If the pointable is valid. Calculate the selected value according to its height
-        if(p==None):
-            self.finger_visible = False
+        if( (FINGER_TIP_SELECTION and p==None) or ((not FINGER_TIP_SELECTION) and h==None)):
+            self.selector_visible = False
         else:
-            self.finger_visible = True
+            self.selector_visible = True
+
+            #FINGER_TIP_SELECTION => p!=None
+            #(not FINGER_TIP_SELECTION => h!=None)
+
+            # Update the list of available items
+            if(FINGER_EXTENSION_FILTER and h!=None):
+                self.selectable_items = []
+                # Retrieve entries from the pose library
+                action = bpy.data.actions[self.POSE_LIBRARY_NAME]
+                for marker in action.pose_markers:
+                    print(marker)
+                    flags = getHandBitFlag(h['id'], leap_dict)
+                    #print("{0:b}".format(flags))
+                    #print("Found marker " + str(marker.name) + " at frame " + str(marker.frame))
+
+
+                    skip = False
+                    
+                    # if the pose is in the finger OPEN db, the finger MUST be open. if it is not, we skip the pose.
+                    if(marker.name in finger_open_db):
+                        need_open_flags = finger_open_db[marker.name]
+                        #print(marker.name+" ->\t{0:b}".format(need_open_flags))
+                        # if some flag is missing, skip it!
+                        if( (need_open_flags & flags) != need_open_flags):
+                            skip = True
+
+                    # if the pose is in the finger CLOSE db, the finger MUST be close. if it is not, we skip the pose.
+                    if(marker.name in finger_closed_db):
+                        need_close_flags = finger_closed_db[marker.name]
+                        if( (need_close_flags & (~flags)) != need_close_flags):
+                            skip = True
+
+                    # if(marker.name in pinch_needed_set):
+                    #     if((flags & 0b100000) != 0b100000):
+                    #         skip = True
+
+                    if(not skip):
+                        self.selectable_items.append(marker.name)
+
 
             n_items = len(self.selectable_items)
+
+
             
-            y = p['tipPosition'][1]
+            if(FINGER_TIP_SELECTION):
+                # use finger coordinates
+                y = p['tipPosition'][1]
+            else:
+                # Use palm coordinates
+                y = h['palmPosition'][1]
+
+
             
             normalized_y = (y - SELECTION_MIN_Y) / (SELECTION_MAX_Y - SELECTION_MIN_Y)
-            #self.selection_factor = normalized_y
+            self.selection_factor = normalized_y
 
 
             #
             # Check for circling gesture to shift the selection window
-            p_id = p['id']
-            gestures = dict["gestures"]
-            found_gesture = None
-            for gesture in gestures:
-                if(gesture["type"] != "circle"):
-                    continue
-                if(p_id in gesture["pointableIds"]):
-                    found_gesture = gesture
-                    break
+            if(p!=None):
 
-            if(found_gesture != None):
-                USE_RADIUS = False
-                if(USE_RADIUS):
-                    min_radius = 5
-                    max_radius = 50
-                    min_speed = 0.5
-                    max_speed = 6
-                    radius = found_gesture['radius']
-                    radius = min(max_radius, max(min_radius, radius))
-                    
-                    radius_k = (radius - min_radius) / (max_radius-min_radius)
-                    radius_k = 1-radius_k
-                    #print(" "+str(k))
-                    rot_speed = min_speed + (max_speed - min_speed) * radius_k
-                    delta_scroll = rot_speed * dt
-                else:   #use tangent speed
+                p_id = p['id']
+                gestures = leap_dict["gestures"]
+                found_gesture = None
+                for gesture in gestures:
+                    if(gesture["type"] != "circle"):
+                        continue
+                    if(p_id in gesture["pointableIds"]):
+                        found_gesture = gesture
+                        break
+
+                if(found_gesture != None):
+                    #use tangent speed
                     vx,vy,vz = p['tipVelocity']
                     velocity = mathutils.Vector((vx,vy,vz))
                     linear_velocity = velocity.length
                     delta_scroll = 0.02 * linear_velocity * dt
 
-                    
-                normal = gesture["normal"]
-                if(normal[2] < 0):
-                    clockwise = True
-                    self.selection_window_first_item += delta_scroll
-                else:
-                    clockwise = False
-                    self.selection_window_first_item -= delta_scroll
-                    
-                    
-                #print("Circling. Clockwise="+str(clockwise))
-                if(self.selection_window_first_item<0):
-                    self.selection_window_first_item = 0
-                max_window_start = max(0, n_items - MAX_DISPLAY_ELEMENTS)
-                if(self.selection_window_first_item>max_window_start):
-                    self.selection_window_first_item = max_window_start
-                #print("self.selection_window_first_item set at " + str(self.selection_window_first_item))
-            else:
-                # if not circle was detected, normally update the selection factor
-                self.selection_factor = normalized_y
-                pass
+                        
+                    normal = gesture["normal"]
+                    if(normal[2] < 0):
+                        clockwise = True
+                        self.selection_window_first_item += delta_scroll
+                    else:
+                        clockwise = False
+                        self.selection_window_first_item -= delta_scroll
+                        
+                        
+                    #print("Circling. Clockwise="+str(clockwise))
+                    if(self.selection_window_first_item<0):
+                        self.selection_window_first_item = 0
+                    max_window_start = max(0, n_items - MAX_DISPLAY_ELEMENTS)
+                    if(self.selection_window_first_item>max_window_start):
+                        self.selection_window_first_item = max_window_start
+                    #print("self.selection_window_first_item set at " + str(self.selection_window_first_item))
+
+
             
             
             #
-            # If the finger is above or below the selection y range, scroll it.
+            # If the selection is above or below the selection y range, scroll it.
             SCROLL_MAX_SPEED = 12
             SCROLL_ZONE_SIZE = 0.3 # in normalized space, for how much the finger will trigger the scroll up/down
             scroll_factor = 0.0
@@ -346,6 +398,9 @@ class HandShapeSelector(bpy.types.Operator):
                 if(self.selection_window_first_item>max_window_start):
                     self.selection_window_first_item = max_window_start
 
+            # At this point:
+            # self.selection_window_first_item is the (float) id of the first element to display in the list
+            # self.selection_factor is the 0-1 factor to decide which element to select in the available space
             
             #
             # Finally, if the finger is in the selection y range, calculate the selection number and apply the current pose
@@ -415,7 +470,7 @@ class HandShapeSelector(bpy.types.Operator):
         bgl.glEnable(bgl.GL_BLEND)
         bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
 
-        if(not self.finger_visible):
+        if(not self.selector_visible):
             pos_x = (context.region.width / 2) + self.ICON_SIZE
             bgl.glRasterPos2f(pos_x, pos_y)
             bgl.glDrawPixels(self.ICON_SIZE, self.ICON_SIZE, bgl.GL_RGBA, bgl.GL_FLOAT, icon_pointing_finger_missing)
@@ -426,7 +481,14 @@ class HandShapeSelector(bpy.types.Operator):
 
         bgl.glPopClientAttrib()
         
-        self.draw_bg(context)
+        #
+        # Draw background
+        max_text_width = 0
+        for item in self.selectable_items:
+            item_w,item_h = blf.dimensions(0, item)
+            if(item_w > max_text_width):
+                max_text_width = item_w
+        self.draw_bg(context, width=max_text_width*1.5)
         
         #
         # Draw entries
@@ -547,7 +609,7 @@ class HandShapeSelector(bpy.types.Operator):
         bgl.glEnable(bgl.GL_BLEND)
         bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
         
-        if(not self.finger_visible):
+        if(not self.selector_visible):
             pos_x = (context.region.width / 2) + self.ICON_SIZE
             pos_y = text_top_y - self.ICON_SIZE
             bgl.glRasterPos2f(pos_x, pos_y)
@@ -744,6 +806,115 @@ def loadImageEventually(image_file):
 
 
 
+#
+# This database is used when filtering the handshapes using finger extension
+# Each handshape (which might appear in the hands_library) is followed by a bitmask specifying which finger are extended, plus a flag for the "lasso"
+# key = shapename
+# data = (6 bit flags) <lasso> <pinky> <ring> <medium> <index> <thumb>
+# e.g. 'a': 0b000000 ; 'l': 0b000011; 'o': 0b100000, ...
+
+# For each pose in the animation library, mark which finger MUST BE OPEN for the sign to be valid
+finger_open_db = {
+#    'ClosedHand':   0b00000,
+    'OpenHand':     0b11111,
+#    'a':    0b00000,
+    'b':    0b11110,
+#    'c':    0b00000,
+    'd':    0b00010,
+#    'e':    0b00000,
+    'f':    0b11100,
+    'g':    0b00010,
+    'h':    0b00110,
+    'i':    0b10000,
+    'j':    0b10000,
+    'k':    0b00111,
+    'l':    0b00011,
+    'm':    0b01110,
+    'n':    0b00110,
+#    'o':    0b00000,
+    'p':    0b00111,
+    'q':    0b00011,
+    'r':    0b00110,
+#    's':    
+    'sch':  0b11111,
+    't':    0b00010,
+    'u':    0b00110,
+    'v':    0b00110,
+    'w':    0b01110,
+#    'x':
+    'y':    0b10001,
+    'z':    0b00010
+}
+
+# For each pose in the animation library, mark which finger MUST BE CLOSED for the sign to be valid
+finger_closed_db = {
+    'ClosedHand':   0b11111,
+#    'OpenHand':     0b11111,
+    'a':    0b11110,
+    'b':    0b00001,
+#    'c':    0b00000,
+#    'd':    0b00010,
+    'e':    0b11111,
+    'f':    0b00010,
+    'g':    0b11100,
+    'h':    0b11000,
+    'i':    0b01111,
+    'j':    0b01111,
+    'k':    0b11000,
+    'l':    0b11100,
+    'm':    0b10000,
+    'n':    0b110000,
+#    'o':    0b00000,
+    'p':    0b11000,
+    'q':    0b11100,
+    'r':    0b110011,
+    's':    0b11111,
+#    'sch':  0b11111,
+    't':    0b11100,
+    'u':    0b11000,
+    'v':    0b11000,
+    'w':    0b10000,
+    'x':    0b11101,
+    'y':    0b01110,
+    'z':    0b11100    
+}
+
+# These poses are selectable only if a pinch is detected in the hand
+pinch_needed_set = ('d','f','o')
+
+
+# returns the bitflag as needed by the finger extension dictionary.
+def getHandBitFlag(hand_id, leap_dict):
+    out = 0
+
+    pointables = leap_dict['pointables']
+    # Scan each pointable
+    for p in pointables:
+        # If it pertains to this hand
+        if(p['handId'] == hand_id):
+            # if it is extended
+            if( p['extended'] ):
+                # merge the flag
+                # the 'type' is the ordered finger number (0=thumb, 1=index, ...)
+                out |= 1 << p['type'] 
+
+    # check for lasso
+    for h in leap_dict['hands']:
+        # if it is the correct hand
+        if(h['id'] == hand_id):
+            pinch_str = h['pinchStrength']
+            # we decide a threshold
+            if(pinch_str > 0.95):
+                out |= 0b100000
+
+
+    return out
+    #return 0b101101
+
+
+
+
+
 # I've got here the possible values for the 'name' parameter for the KeyMap
 # https://svn.blender.org/svnroot/bf-extensions/contrib/py/scripts/addons/presets/keyconfig/blender_2012_experimental.py
 #EDIT_MODES = ['Object Mode', 'Pose']
@@ -760,7 +931,10 @@ def register():
     global icon_pointing_finger
     global icon_pointing_finger_missing
 
+    # Register properties
+    bpy.types.WindowManager.leap_hand_shape_selector_finger_extension_filter = bpy.props.BoolProperty(name="Finger Extension Filter", description="Extending or retracting the fingers filter out the number of available letters to show in the hand dhape selector.", default=False, options={'SKIP_SAVE'})
 
+    # Register classes
     bpy.utils.register_class(HandShapeSelector)
     
     #
@@ -769,7 +943,6 @@ def register():
     icon_pointing_finger = bgl.Buffer(bgl.GL_FLOAT, len(image.pixels), image.pixels)
     image = loadImageEventually(image_file="1-finger-point-left-icon-red-missing.png")
     icon_pointing_finger_missing = bgl.Buffer(bgl.GL_FLOAT, len(image.pixels), image.pixels)
-
     
     
     # handle the keymap
@@ -782,8 +955,6 @@ def register():
 
     kmi = km.keymap_items.new(HandShapeSelector.bl_idname, LHAND_ACTIVATION_CHAR, 'PRESS', ctrl=True, shift=False)
     kmi.properties.use_right_hand = False
-    #kmi.properties.isRotating = True
-    #kmi.properties.translationUseFinger = True
     hand_selection_keymap_items.append((km, kmi))
  
     pass
@@ -802,7 +973,12 @@ def unregister():
     icon_pointing_finger = None
     icon_pointing_finger_missing = None
 
+    # Unregister the class
     bpy.utils.unregister_class(HandShapeSelector)
+
+    # Unregister properties
+    del bpy.context.window_manager.leap_hand_shape_selector_finger_extension_filter
+
     pass
 
 if __name__ == "__main__":
