@@ -80,9 +80,13 @@ class HandShapeSelector(bpy.types.Operator):
     
     use_right_hand = BoolProperty(name="use_right_hand", description="Whether to operate on the right hand, or the left one", default=True)
     
+    # Reference to the LeapReceiver singleton, to get updated leap dictionaries
     leap_receiver = None
 
+    # Utility object to get the most stable last used pointable.
     pointable_selector = None
+
+    # Utility object to get the most stable last used hand.
     hand_selector = None
 
 
@@ -94,7 +98,7 @@ class HandShapeSelector(bpy.types.Operator):
     selector_visible = False
     
     # A normalized float factor of the y position of the finger, in range [0,1). Set in modal().
-    selection_factor = -1
+    normalized_finger_y = 0
     
     # The number of the first item to select in the selection window
     # range [0, len(selectable_items) - MAX_DISPLAY_ELEMENTS - 1]
@@ -331,8 +335,7 @@ class HandShapeSelector(bpy.types.Operator):
 
 
             
-            normalized_y = (y - SELECTION_MIN_Y) / (SELECTION_MAX_Y - SELECTION_MIN_Y)
-            self.selection_factor = normalized_y
+            self.normalized_finger_y = (y - SELECTION_MIN_Y) / (SELECTION_MAX_Y - SELECTION_MIN_Y)
 
 
             #
@@ -382,10 +385,10 @@ class HandShapeSelector(bpy.types.Operator):
             SCROLL_MAX_SPEED = 12
             SCROLL_ZONE_SIZE = 0.3 # in normalized space, for how much the finger will trigger the scroll up/down
             scroll_factor = 0.0
-            if(normalized_y > 1.0 and normalized_y < (1.0 + SCROLL_ZONE_SIZE)):
-                scroll_factor = (normalized_y - 1.0) / SCROLL_ZONE_SIZE
-            elif(normalized_y < 0.0 and normalized_y > (0.0 - SCROLL_ZONE_SIZE)):
-                scroll_factor = (normalized_y) / SCROLL_ZONE_SIZE
+            if(self.normalized_finger_y > 1.0 and self.normalized_finger_y < (1.0 + SCROLL_ZONE_SIZE)):
+                scroll_factor = (self.normalized_finger_y - 1.0) / SCROLL_ZONE_SIZE
+            elif(self.normalized_finger_y < 0.0 and self.normalized_finger_y > (0.0 - SCROLL_ZONE_SIZE)):
+                scroll_factor = (self.normalized_finger_y) / SCROLL_ZONE_SIZE
 
             if(scroll_factor != 0.0):
                 delta_scroll = - scroll_factor * SCROLL_MAX_SPEED * dt
@@ -400,21 +403,28 @@ class HandShapeSelector(bpy.types.Operator):
 
             # At this point:
             # self.selection_window_first_item is the (float) id of the first element to display in the list
-            # self.selection_factor is the 0-1 factor to decide which element to select in the available space
+            # self.normalized_finger_y is the 0-1 factor to decide which element to select in the available space
             
             #
             # Finally, if the finger is in the selection y range, calculate the selection number and apply the current pose
-            if(self.selection_factor >= 0 and self.selection_factor < 1):
+            clamped_y = max(min(self.normalized_finger_y, 1), 0.01)
+            # We clamp between 0 < y <= 1 because this vale is later inverted to 0 =< y < 1 to select the element from the list.
 
-                first_id = int(self.selection_window_first_item)
-                n_items_left = n_items - first_id
-                n_items_left = min(n_items_left, MAX_DISPLAY_ELEMENTS)
-                last_id = first_id + n_items_left
+            #first_id = int(self.selection_window_first_item)
+            first_id = self.selection_window_first_item
+            n_items_left = n_items - first_id
+            n_items_left = min(n_items_left, MAX_DISPLAY_ELEMENTS)
+            last_id = first_id + n_items_left
 
-                self.selection_num = (int)((last_id-first_id) * (1-self.selection_factor))
-                self.selection_num += first_id
-                #print("Selected_item = " + str(self.selection_num))
-                applyPose(armature=self.selected_armature, pose_library_name=self.POSE_LIBRARY_NAME, hand_bone_names=self.HAND_BONE_NAMES, pose_number=self.selection_num, try_record=False)
+            # assert (last <= n_items) # yes, the last_id can be out of bounds, but we will never select it because the normalized selwction is clamped to 0 <= y < 1
+
+            #self.selection_num = (int)((last_id-first_id) * (1-self.normalized_finger_y))
+            self.selection_num = (last_id-first_id) * (1-clamped_y)
+            self.selection_num += first_id
+            #print("Selected_item = " + str(self.selection_num))
+            print(str(self.selection_num) + "\t" + str(self.selection_window_first_item) + "\t" + str(last_id) + "\t" + str(clamped_y))
+
+            applyPose(armature=self.selected_armature, pose_library_name=self.POSE_LIBRARY_NAME, hand_bone_names=self.HAND_BONE_NAMES, pose_number=int(self.selection_num), try_record=False)
 
 
 
@@ -441,7 +451,7 @@ class HandShapeSelector(bpy.types.Operator):
             self.leap_receiver = None
     
 
-    FONT_MAX_SIZE = 24
+    FONT_MAX_SIZE = 48
     FONT_RGBA = (0.8, 0.8, 0.8, 0.9)
     SELECTED_FONT_RGBA = (0.8, 0.1, 0.2, 0.9)
     ICON_SIZE = 64
@@ -457,14 +467,39 @@ class HandShapeSelector(bpy.types.Operator):
         self.draw_callback_px_moving_arrow(context)
 
 
+    #
+    # MOVING TEXT
+    #    
+
     def draw_callback_px_moving_text(self, context):
+
+        # # A normalized float factor of the y position of the finger, in range [0,1). Set in modal().
+        # normalized_finger_y = -1        
+        # # The number of the first item to select in the selection window
+        # # range [0, len(selectable_items) - MAX_DISPLAY_ELEMENTS - 1]
+        # selection_window_first_item = 0
+        # # The selection number for the highlighted item, in range [0,len(selectable_items)-1]
+        # selection_num = -1
+
+        #print("selection= "+str(self.selection_num))
+        int_selection_num = int(self.selection_num)
+
+
         n_items = len(self.selectable_items)
+
+        n_items_to_display = min(MAX_DISPLAY_ELEMENTS, len(self.selectable_items))
+        text_area_height = n_items_to_display * self.FONT_MAX_SIZE
+
         
         #
         # Draw pointing finger
         bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
         
-        pos_y = (context.region.height / 2) - (self.ICON_SIZE / 2)
+        central_y = (context.region.height / 2) - (self.ICON_SIZE / 2)
+
+        # The finger icon (64x64) has the finget tip at pixel 23 from the top, or 40 from the bottom
+        # Since
+        pos_y = central_y - 40
         
         # transparence
         bgl.glEnable(bgl.GL_BLEND)
@@ -479,6 +514,10 @@ class HandShapeSelector(bpy.types.Operator):
             bgl.glRasterPos2f(pos_x, pos_y)
             bgl.glDrawPixels(self.ICON_SIZE, self.ICON_SIZE, bgl.GL_RGBA, bgl.GL_FLOAT, icon_pointing_finger)
 
+        blf.size(0, 24, 72)
+        blf.position(0, pos_x, pos_y, 0)
+        blf.draw(0, "_ Text position test _")
+
         bgl.glPopClientAttrib()
         
         #
@@ -490,29 +529,42 @@ class HandShapeSelector(bpy.types.Operator):
                 max_text_width = item_w
         self.draw_bg(context, width=max_text_width*1.5)
         
+
+        #
+        # Test
+        #
+        bgl.glPushAttrib(bgl.GL_CLIENT_ALL_ATTRIB_BITS)
+        bgl.glColor4f(*self.FONT_RGBA)
+        blf.position(0, 50, 100, 0)
+        blf.draw(0, "PROOOOVA")            
+        bgl.glPopAttrib()
+
+
+
         #
         # Draw entries
         draw_height = context.region.height * 0.8
         n_items = len(self.selectable_items)
-        font_size = draw_height / n_items
+        font_size = int(draw_height / n_items)
         font_size = min(font_size, self.FONT_MAX_SIZE)
-        text_height = n_items * font_size
+        #text_height = n_items * font_size
 
-        text_lower_y = (context.region.height / 2)
-        text_higher_y = text_lower_y + text_height
+        #text_lower_y = (context.region.height / 2)
+        #text_higher_y = text_lower_y + text_height
+
 
         #
         bgl.glPushAttrib(bgl.GL_CLIENT_ALL_ATTRIB_BITS)
 
         blf.size(0, font_size, 72)
-        #print(self.selection_factor)
+        #print(self.normalized_finger_y)
         pos_x = 0
         
-        REVERSE = False
-        if(REVERSE):
-            pos_y = text_lower_y - text_height + self.selection_factor * (text_height) + (self.ICON_SIZE / 4)
-        else:
-            pos_y = text_lower_y + (1-self.selection_factor) * (text_higher_y - text_lower_y) - (self.ICON_SIZE / 4)
+        # The first item will be drawn on the very top, according to the current selection and its position on screen
+        # The offset uses (self.selection_num - 1) because the text is written with the y at the bottom line.
+        # However, it is easier to calculate thinking of its beginning at the top. So we shift the text up of one line.
+        pos_y =  central_y + ( (self.selection_num - 1) * font_size)
+
 
 
         for item_id in range(0,n_items):
@@ -523,26 +575,31 @@ class HandShapeSelector(bpy.types.Operator):
             
             blf.position(0, pos_x, pos_y, 0)
             
-            if(item_id == self.selection_num):
+            if(item_id == int_selection_num):
                 bgl.glColor4f(*self.SELECTED_FONT_RGBA)
             else:
                 bgl.glColor4f(*self.FONT_RGBA)
 
+            #print("Drawing item at "+str(pos_x) + "\t" + str(pos_y))
             blf.draw(0, item)
-            if(REVERSE):
-                pos_y += font_size
-            else:
-                pos_y -= font_size
-                
 
+            pos_y -= font_size
+                
             
         bgl.glPopAttrib()
        
         pass
 
 
+
+    #
+    # MOVING ARROW
+    #
+
     def draw_callback_px_moving_arrow(self, context):
         #print("drawing")
+
+        int_selection_num = int(self.selection_num)
         
         n_items = len(self.selectable_items)
         n_items_to_display = min(MAX_DISPLAY_ELEMENTS, len(self.selectable_items))
@@ -587,7 +644,7 @@ class HandShapeSelector(bpy.types.Operator):
             
             blf.position(0, pos_x, pos_y, 0)
             
-            if(item_id == self.selection_num):
+            if(item_id == int_selection_num):
                 bgl.glColor4f(*self.SELECTED_FONT_RGBA)
             else:
                 bgl.glColor4f(*self.FONT_RGBA)
@@ -616,7 +673,7 @@ class HandShapeSelector(bpy.types.Operator):
             bgl.glDrawPixels(self.ICON_SIZE, self.ICON_SIZE, bgl.GL_RGBA, bgl.GL_FLOAT, icon_pointing_finger_missing)
         else:
             pos_x = (context.region.width / 2)
-            pos_y = text_bottom_y + self.selection_factor * text_area_height - (self.ICON_SIZE/2)
+            pos_y = text_bottom_y + self.normalized_finger_y * text_area_height - (self.ICON_SIZE * 0.625)
             bgl.glRasterPos2f(pos_x, pos_y)
             bgl.glDrawPixels(self.ICON_SIZE, self.ICON_SIZE, bgl.GL_RGBA, bgl.GL_FLOAT, icon_pointing_finger)
 
