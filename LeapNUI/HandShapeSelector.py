@@ -49,6 +49,9 @@ UPDATE_DELAY = 0.04
 SELECTION_MIN_Y = 100
 SELECTION_MAX_Y = 250
 
+
+SELECTION_DISPLAY_HEIGHT = 0.8
+
 MAX_DISPLAY_ELEMENTS = 10
 
 
@@ -243,7 +246,7 @@ class HandShapeSelector(bpy.types.Operator):
             return self.cancel(context)
         
         if (event.type == RHAND_ACTIVATION_CHAR or event.type == LHAND_ACTIVATION_CHAR) and event.value == "PRESS":
-            n = self.selection_num
+            n = int(self.selection_num)
             self.removeHandlers()
             self.stop_leap_receiver()
             if(n<0 or n>len(self.selectable_items)):
@@ -259,8 +262,6 @@ class HandShapeSelector(bpy.types.Operator):
             print("No dictionary yet...")
             return {"RUNNING_MODAL"}
 
-
-        # TODO, move in properties, expose in GUI
 
         if(bpy.context.window_manager.leap_hand_shape_selector_finger_extension_filter):
             FINGER_EXTENSION_FILTER = True
@@ -422,7 +423,7 @@ class HandShapeSelector(bpy.types.Operator):
             self.selection_num = (last_id-first_id) * (1-clamped_y)
             self.selection_num += first_id
             #print("Selected_item = " + str(self.selection_num))
-            print(str(self.selection_num) + "\t" + str(self.selection_window_first_item) + "\t" + str(last_id) + "\t" + str(clamped_y))
+            #print(str(self.selection_num) + "\t" + str(self.selection_window_first_item) + "\t" + str(last_id) + "\t" + str(clamped_y))
 
             applyPose(armature=self.selected_armature, pose_library_name=self.POSE_LIBRARY_NAME, hand_bone_names=self.HAND_BONE_NAMES, pose_number=int(self.selection_num), try_record=False)
 
@@ -463,8 +464,8 @@ class HandShapeSelector(bpy.types.Operator):
                 #print("Skipping...")
                 return
 
-        #self.draw_callback_px_moving_text(context)
-        self.draw_callback_px_moving_arrow(context)
+        self.draw_callback_px_moving_text(context)
+        #self.draw_callback_px_moving_arrow(context)
 
 
     #
@@ -487,24 +488,44 @@ class HandShapeSelector(bpy.types.Operator):
 
         n_items = len(self.selectable_items)
 
+        # Phylosophy
+        # We try to use the fraction of the current heght of the area, but up to a maximum font size
+
+        # Number of items to really display
         n_items_to_display = min(MAX_DISPLAY_ELEMENTS, len(self.selectable_items))
-        text_area_height = n_items_to_display * self.FONT_MAX_SIZE
+
+        # Calculate the top point
+        text_top_y = context.region.height * ( (1 + SELECTION_DISPLAY_HEIGHT) / 2)
+
+        # calc the desired text area height
+        desired_bottom_y = context.region.height * ( (1-SELECTION_DISPLAY_HEIGHT) / 2)
+        desired_text_area_height = text_top_y - desired_bottom_y
+        # calc the desired the font size
+        font_size = int(desired_text_area_height / n_items_to_display)
+        # But limit the font size to their maximum
+        font_size = min(font_size, self.FONT_MAX_SIZE)
+        # The effective size of the text area, according to the chosen font size
+        text_area_height = font_size * n_items_to_display
+        # recompute the bottom point according to chosen font size
+        text_bottom_y = text_top_y - text_area_height
+
+        #print(str(self.FONT_MAX_SIZE)+" fs="+str(font_size))
+
+
+        central_y = text_bottom_y + int(text_area_height / 2)
 
         
         #
         # Draw pointing finger
         bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
         
-        central_y = (context.region.height / 2) - (self.ICON_SIZE / 2)
-
-        # The finger icon (64x64) has the finget tip at pixel 23 from the top, or 40 from the bottom
-        # Since
-        pos_y = central_y - 40
-        
         # transparence
         bgl.glEnable(bgl.GL_BLEND)
         bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
 
+        # The finger icon (64x64) has the finget tip at pixel 23 from the top, or 40 from the bottom
+        pos_y = central_y - 40
+        
         if(not self.selector_visible):
             pos_x = (context.region.width / 2) + self.ICON_SIZE
             bgl.glRasterPos2f(pos_x, pos_y)
@@ -513,10 +534,6 @@ class HandShapeSelector(bpy.types.Operator):
             pos_x = (context.region.width / 2)
             bgl.glRasterPos2f(pos_x, pos_y)
             bgl.glDrawPixels(self.ICON_SIZE, self.ICON_SIZE, bgl.GL_RGBA, bgl.GL_FLOAT, icon_pointing_finger)
-
-        blf.size(0, 24, 72)
-        blf.position(0, pos_x, pos_y, 0)
-        blf.draw(0, "_ Text position test _")
 
         bgl.glPopClientAttrib()
         
@@ -527,44 +544,22 @@ class HandShapeSelector(bpy.types.Operator):
             item_w,item_h = blf.dimensions(0, item)
             if(item_w > max_text_width):
                 max_text_width = item_w
-        self.draw_bg(context, width=max_text_width*1.5)
+        self.draw_bg(context, top_y=text_top_y, bottom_y=text_bottom_y, width=max_text_width*1.5)
         
-
-        #
-        # Test
-        #
-        bgl.glPushAttrib(bgl.GL_CLIENT_ALL_ATTRIB_BITS)
-        bgl.glColor4f(*self.FONT_RGBA)
-        blf.position(0, 50, 100, 0)
-        blf.draw(0, "PROOOOVA")            
-        bgl.glPopAttrib()
-
 
 
         #
         # Draw entries
-        draw_height = context.region.height * 0.8
-        n_items = len(self.selectable_items)
-        font_size = int(draw_height / n_items)
-        font_size = min(font_size, self.FONT_MAX_SIZE)
-        #text_height = n_items * font_size
-
-        #text_lower_y = (context.region.height / 2)
-        #text_higher_y = text_lower_y + text_height
-
-
         #
         bgl.glPushAttrib(bgl.GL_CLIENT_ALL_ATTRIB_BITS)
 
         blf.size(0, font_size, 72)
-        #print(self.normalized_finger_y)
         pos_x = 0
         
         # The first item will be drawn on the very top, according to the current selection and its position on screen
         # The offset uses (self.selection_num - 1) because the text is written with the y at the bottom line.
         # However, it is easier to calculate thinking of its beginning at the top. So we shift the text up of one line.
         pos_y =  central_y + ( (self.selection_num - 1) * font_size)
-
 
 
         for item_id in range(0,n_items):
@@ -600,24 +595,38 @@ class HandShapeSelector(bpy.types.Operator):
         #print("drawing")
 
         int_selection_num = int(self.selection_num)
-        
         n_items = len(self.selectable_items)
-        n_items_to_display = min(MAX_DISPLAY_ELEMENTS, len(self.selectable_items))
-        text_area_height = n_items_to_display * self.FONT_MAX_SIZE
-        font_size = self.FONT_MAX_SIZE
-        #print("Font_size = " + str(font_size))
-        #
+
         
 
-        text_top_y = (context.region.height * 0.9)
+        # Phylosophy
+        # We try to use the fraction of the current heght of the area, but up to a maximum font size
+
+        # Number of items to really display
+        n_items_to_display = min(MAX_DISPLAY_ELEMENTS, len(self.selectable_items))
+
+        # Calculate the top point
+        text_top_y = context.region.height * ( (1 + SELECTION_DISPLAY_HEIGHT) / 2)
+
+        # calc the desired text area height
+        desired_bottom_y = context.region.height * ( (1-SELECTION_DISPLAY_HEIGHT) / 2)
+        desired_text_area_height = text_top_y - desired_bottom_y
+        # calc the desired the font size
+        font_size = int(desired_text_area_height / n_items_to_display)
+        # But limit the font size to their maximum
+        font_size = min(font_size, self.FONT_MAX_SIZE)
+        # The effective size of the text area, according to the chosen font size
+        text_area_height = font_size * n_items_to_display
+        # recompute the bottom point according to chosen font size
         text_bottom_y = text_top_y - text_area_height
 
+        #print("Font_size = " + str(font_size))
         
-        #bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
+        
+       
         bgl.glPushAttrib(bgl.GL_CLIENT_ALL_ATTRIB_BITS)
 
         blf.size(0, font_size, 72)
-
 
         #
         # Draw background
@@ -627,14 +636,14 @@ class HandShapeSelector(bpy.types.Operator):
             if(item_w > max_text_width):
                 max_text_width = item_w
 
-        self.draw_bg(context=context, width=max_text_width*1.5)
+        self.draw_bg(context=context, top_y=text_top_y, bottom_y=text_bottom_y, width=max_text_width*1.5)
 
 
         #
         # Draw entries
         pos_x = 0
-        pos_y = text_top_y - font_size        
-        pos_y += self.selection_window_first_item * self.FONT_MAX_SIZE
+        pos_y = text_top_y - font_size
+        pos_y += self.selection_window_first_item * font_size
                 
         for item_id in range(0,len(self.selectable_items)):
             item = self.selectable_items[item_id]
@@ -652,11 +661,8 @@ class HandShapeSelector(bpy.types.Operator):
             blf.draw(0, item)            
             pos_y -= font_size
 
-        #blf.position(0, 0, 0, 0)
-        #blf.draw(0, "Test00")            
             
         bgl.glPopAttrib()
-        #bgl.glPopClientAttrib()
                 
         #
         # Draw pointing finger
@@ -686,18 +692,14 @@ class HandShapeSelector(bpy.types.Operator):
 
 
 
-    def draw_bg(self, context, width):
+    def draw_bg(self, context, top_y, bottom_y, width):
         bgl.glEnable(bgl.GL_BLEND)
         bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
 
         bgl.glBegin(bgl.GL_QUADS)
         
-        top_y = context.region.height * 0.9
-        bottom_y = top_y - (min(MAX_DISPLAY_ELEMENTS,len(self.selectable_items)) * self.FONT_MAX_SIZE)
-        #bottom_y -= self.FONT_MAX_SIZE / 3  # move down a bit more to cover descending fonts
         right_x = context.region.width / 2
         left_x = right_x - width
-        #right_x = context.region.width / 2
                 
         bgl.glVertex2f(left_x,bottom_y)
         bgl.glColor4f(*self.BACKGROUND_COLOR)
