@@ -48,14 +48,16 @@ UPDATE_DELAY = 0.04
 
 #SELECTION_MAX_Y = 250
 #SELECTION_MIN_Y = 100
-SELECTION_MAX_Y = 210
-SELECTION_MIN_Y = 190
+#SELECTION_MAX_Y = 210
+#SELECTION_MIN_Y = 190
+
+SELECTION_STABLE_RANGE = 10     # (mm) The size of the stable (non scroll) y range, over and below the initial finger y.
 
 
 # The proportion of display area that will be occupied by the transparent background.
 SELECTION_DISPLAY_HEIGHT = 0.8
 
-MAX_DISPLAY_ELEMENTS = 1
+MAX_DISPLAY_ELEMENTS = 2
 
 
 def getSelectedArmature(context):
@@ -103,6 +105,10 @@ class HandShapeSelector(bpy.types.Operator):
     # Set to True in modal() if a finger (or hand) is visible and within the vertical range
     selector_visible = False
     
+
+    # The finger height (y) detected at the first invocation of the oprtator. It will be atken as the center of the stability range.
+    central_finger_y = None
+
     # A normalized float factor of the y position of the finger, in range [0,1). Set in modal().
     normalized_finger_y = 0
     
@@ -342,11 +348,24 @@ class HandShapeSelector(bpy.types.Operator):
             else:
                 # Use palm coordinates
                 y = h['palmPosition'][1]
-            print(str(y))
 
-            self.normalized_finger_y = (y - SELECTION_MIN_Y) / (SELECTION_MAX_Y - SELECTION_MIN_Y)
+            if(self.central_finger_y == None):
+                self.central_finger_y = y
+
+            # The finger offset with respect to the central initial y
+            offset_y = y - self.central_finger_y
 
 
+            #self.normalized_finger_y = (y - SELECTION_MIN_Y) / (SELECTION_MAX_Y - SELECTION_MIN_Y)
+
+            normalized_offset_y = offset_y / SELECTION_STABLE_RANGE
+
+            # remodulate from range [-1,1] to range [0,1]
+            self.normalized_finger_y = (normalized_offset_y + 1) / 2
+            # or
+            # self.normalized_finger_y = (offset_y + SELECTION_STABLE_RANGE) / (SELECTION_STABLE_RANGE * 2)
+
+            print(str(y) + "\toffy="+str(offset_y)+"\tnorm_finger_y="+str(self.normalized_finger_y))
 
 
             #
@@ -406,45 +425,39 @@ class HandShapeSelector(bpy.types.Operator):
             # elif(self.normalized_finger_y < 0.0 and self.normalized_finger_y > (0.0 - SCROLL_ZONE_SIZE)):
             #     scroll_factor = (self.normalized_finger_y) / SCROLL_ZONE_SIZE
 
-            # if(scroll_factor != 0.0):
-            #     delta_scroll = - scroll_factor * SCROLL_MAX_SPEED * dt
-            #     #print("Scrolling f "+str(scroll_factor) + " -> " + str(delta_scroll))
-            #     self.selection_window_first_item += delta_scroll
-            
-            #     if(self.selection_window_first_item<0):
-            #         self.selection_window_first_item = 0
-            #     max_window_start = max(0, n_items - MAX_DISPLAY_ELEMENTS)
-            #     if(self.selection_window_first_item>max_window_start):
-            #         self.selection_window_first_item = max_window_start
 
-
-            SCROLL_MAX_SPEED = 3   # Items per second
+            SCROLL_MAX_SPEED = 2   # Items per second
             SCROLL_ZONE_SIZE = 30 # in mm, the height of the scroll which will be normalized from 0 to 1
 
             scroll_factor = 0.0
 
-            if(y>SELECTION_MAX_Y):
-                scroll_factor = (y - SELECTION_MAX_Y) / SCROLL_ZONE_SIZE
+            # if(y>SELECTION_MAX_Y):
+            #     scroll_factor = (y - SELECTION_MAX_Y) / SCROLL_ZONE_SIZE
+            #     scroll_factor = min(scroll_factor, 1.0)
+            #     # scroll factor normalized and clamped in [0-1].
+            # elif(y<SELECTION_MIN_Y):
+            #     scroll_factor = (y - SELECTION_MIN_Y) / SCROLL_ZONE_SIZE
+            #     scroll_factor = max(scroll_factor, -1.0)
+            #     # scroll factor normalized and clamped in [-1,0].
+
+
+            if(offset_y>SELECTION_STABLE_RANGE):
+                scroll_factor = (offset_y - SELECTION_STABLE_RANGE) / SCROLL_ZONE_SIZE
                 scroll_factor = min(scroll_factor, 1.0)
                 # scroll factor normalized and clamped in [0-1].
-            elif(y<SELECTION_MIN_Y):
-                scroll_factor = (y - SELECTION_MIN_Y) / SCROLL_ZONE_SIZE
+            elif(offset_y<SELECTION_STABLE_RANGE):
+                scroll_factor = (offset_y + SELECTION_STABLE_RANGE) / SCROLL_ZONE_SIZE
                 scroll_factor = max(scroll_factor, -1.0)
                 # scroll factor normalized and clamped in [-1,0].
 
-            print("scroll="+str(scroll_factor))
+
+            #print("scroll="+str(scroll_factor))
 
             #boot the scrool
             scroll_factor = (scroll_factor * 1.6) ** 3
             # Note that the above formula KEEPS the sign!
 
-            print("scroll2="+str(scroll_factor))
-
-
-            # if(self.normalized_finger_y > 1.0 and self.normalized_finger_y < (1.0 + SCROLL_ZONE_SIZE)):
-            #     scroll_factor = (self.normalized_finger_y - 1.0) / SCROLL_ZONE_SIZE
-            # elif(self.normalized_finger_y < 0.0 and self.normalized_finger_y > (0.0 - SCROLL_ZONE_SIZE)):
-            #     scroll_factor = (self.normalized_finger_y) / SCROLL_ZONE_SIZE
+            #print("scroll2="+str(scroll_factor))
 
             if(scroll_factor != 0.0):
                 delta_scroll = - scroll_factor * SCROLL_MAX_SPEED * dt
@@ -534,14 +547,6 @@ class HandShapeSelector(bpy.types.Operator):
     #    
 
     def draw_callback_px_moving_text(self, context):
-
-        # # A normalized float factor of the y position of the finger, in range [0,1). Set in modal().
-        # normalized_finger_y = -1        
-        # # The number of the first item to select in the selection window
-        # # range [0, len(selectable_items) - MAX_DISPLAY_ELEMENTS - 1]
-        # selection_window_first_item = 0
-        # # The selection number for the highlighted item, in range [0,len(selectable_items)-1]
-        # selection_num = -1
 
         #print("selection= "+str(self.selection_num))
         int_selection_num = int(self.selection_num)
