@@ -329,10 +329,15 @@ class ObjectRotator:
             self.posebone_matrix = self.target_object.matrix * self.target_object.matrix_basis.inverted()
         else:
             self.posebone_matrix = None
+
+        #print("setTarget\nobject_matrix="+str(self.target_object.matrix) + "\n"
+        #"object_matrix_basis="+str(self.target_object.matrix_basis) + "\n"
+        #"posebone_matrix = " + str(self.posebone_matrix) + "\n")
     
     
     def setViewMatrix(self, mat):
         self.view_matrix = mat
+        #print("set view_matrix = " + str(self.view_matrix))
     
     
     def useFinger(self, b):
@@ -347,6 +352,7 @@ class ObjectRotator:
         # Sorry, I have to force the reotation mode to Quaternion.
         self.target_object.rotation_mode = 'QUATERNION'
         self.target_start_rotation = mathutils.Quaternion(self.target_object.rotation_quaternion)
+        #print("target_start_rotation="+str(self.target_start_rotation))
         self.palm_start_rotation = None
     
     def restore(self):
@@ -388,8 +394,11 @@ class ObjectRotator:
             if(self.longitudinal_mode):
                 rot_mat = long_leap_to_blender_rotmat * rot_mat
 
+            #print(rot_mat)
 
             rot = rot_mat.to_quaternion()
+
+            #print(rot)
             
             if(self.palm_start_rotation == None):
                 self.palm_start_rotation = mathutils.Quaternion(rot)
@@ -397,18 +406,32 @@ class ObjectRotator:
             
             # Rotation with respect to the original palm rotation
             delta_rot = rot * self.palm_start_rotation.inverted()
+
+            #print("delta_rot="+str(delta_rot))
         
         # rotate the delta vector according to the view matrix
         cam_rot = self.view_matrix.to_quaternion()
+        #print("cam_rot="+str(cam_rot))
+
         delta_rot = cam_rot.inverted() * delta_rot * cam_rot
+        #print("after cam_rot, delta_rot="+str(delta_rot))
     
         # If it is a PoseBone, must cancel the skeletal rotation
         if(self.posebone_matrix != None):
             delta_rot = self.posebone_matrix.inverted().to_quaternion() * delta_rot * self.posebone_matrix.to_quaternion()
+        #print("after posebone_matrix, delta_rot="+str(delta_rot))
     
     
         # New rotation
         new_rot = delta_rot * self.target_start_rotation
+        #print("new_rot="+str(new_rot))
+
+        # Deal with the Double Coverage problem.
+        # See http://mollyrocket.com/837, but his solution is uncorrect. Inverting the w is not enough, we need the negation of the quaterion.
+        dot_prod = new_rot.dot(self.target_start_rotation)
+        #print("dot_prod="+str(dot_prod))
+        if(dot_prod<0):
+            new_rot.negate()
     
         #Finally put it in there
         if(self.target_object != None):
