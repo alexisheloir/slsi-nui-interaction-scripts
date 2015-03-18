@@ -304,38 +304,9 @@ class MyDrawer:
 
 
 
-class MyModalListener:
-
-    def controllersUpdated(self, leap_modal, context):
-        if(leap_modal.isTranslating):
-            # retrieve the object that is translated
-            obj = leap_modal.obj_translator.target_object
-            # if it is one of our "sensible" posebones, limit its range of motion
-            # if(obj.name == "Shoulders"):
-            #     loc = obj.location
-            #     if(loc.x > 1.5): loc.x = 1.5
-            #     if(loc.x < -1.5): loc.x = -1.5
-            #     if(loc.y > 1.5): loc.y = 1.5
-            #     if(loc.y < -1.5): loc.y = -1.5
-            #     if(loc.z > 0.5): loc.z = 0.5
-            #     if(loc.z < -0.5): loc.z = -0.5
-            # if(obj.name == "Root"):
-            #     loc = obj.location
-            #     if(loc.x > 1.5): loc.x = 1.5
-            #     if(loc.x < -1.5): loc.x = -1.5
-            #     if(loc.y > 1.5): loc.y = 1.5
-            #     if(loc.y < -1.5): loc.y = -1.5
-            #     if(loc.z > 0.5): loc.z = 0.5
-            #     if(loc.z < -0.5): loc.z = -0.5
-                
-        pass
-
-
-
 
 
 s_my_drawer = MyDrawer()
-s_my_modal_listener = MyModalListener()
 
 s_draw_handler = None
 
@@ -368,11 +339,9 @@ def register():
     print("--> Body control activated in space "+str(s_registration_active_space.as_pointer()))
 
     
-    #print("s_my_drawer is " + str(s_my_drawer) + str(s_my_modal_listener))
     #print("s_draw_handle is " + str(s_draw_handler))
 
     LeapModal.drawCallbacks.append(s_my_drawer)
-    LeapModal.modalCallbacks.append(s_my_modal_listener)
     
     #ctx = bpy.context
     #s_draw_handle = bpy.types.SpaceView3D.draw_handler_add(s_my_drawer.drawIcons, (s_my_drawer,), 'WINDOW', 'POST_PIXEL')
@@ -396,6 +365,7 @@ def register():
         kmi.properties.isRotating = True
         #kmi.properties.translationUseFinger = True
         kmi.properties.targetPoseBoneName = MH_CONTROLLER_NECK
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "1" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
         
@@ -404,6 +374,7 @@ def register():
         kmi.properties.isTranslating = True
         kmi.properties.translationUseFinger = True
         kmi.properties.targetPoseBoneName = MH_CONTROLLER_GAZE
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "2" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
 
@@ -413,6 +384,8 @@ def register():
         kmi.properties.isRotating = True
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_HAND_CONTROLLER_R
+        #kmi.properties.selectTarget = True
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "3" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
 
@@ -423,6 +396,7 @@ def register():
         #kmi.properties.translationUseFinger = True
         kmi.properties.isElbowSwivelRotating = True
         kmi.properties.targetPoseBoneName = MH_ELBOW_CONTROLLER_R
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "3" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
 
@@ -433,6 +407,8 @@ def register():
         kmi.properties.isRotating = True
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_HAND_CONTROLLER_L
+        #kmi.properties.selectTarget = True
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "5" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
 
@@ -443,6 +419,7 @@ def register():
         #kmi.properties.translationUseFinger = True
         kmi.properties.isElbowSwivelRotating = True
         kmi.properties.targetPoseBoneName = MH_ELBOW_CONTROLLER_L
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "5" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
 
@@ -453,6 +430,7 @@ def register():
         kmi.properties.translationUseFinger = False
         #kmi.properties.targetPoseBoneName = "Spine3"   # this was for FK spine
         kmi.properties.targetPoseBoneName = MH_UPCHEST_CONTROLLER
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "4" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
 
@@ -462,6 +440,7 @@ def register():
         kmi.properties.isRotating = True
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_ROOT_CONTROLLER
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "7" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
 
@@ -471,6 +450,7 @@ def register():
         kmi.properties.isRotating = True
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_LEG_CONTROLLER_R
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "6" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
 
@@ -480,6 +460,7 @@ def register():
         kmi.properties.isRotating = False
         kmi.properties.translationUseFinger = True
         kmi.properties.targetPoseBoneName = MH_KNEE_CONTROLLER_R
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "6" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
 
@@ -489,6 +470,7 @@ def register():
         kmi.properties.isRotating = True
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_LEG_CONTROLLER_L
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "8" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
 
@@ -498,6 +480,7 @@ def register():
         kmi.properties.isRotating = False
         kmi.properties.translationUseFinger = True
         kmi.properties.targetPoseBoneName = MH_KNEE_CONTROLLER_L
+        kmi.properties.activateTarget = True
         kmi.properties.userData = "8" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
     
@@ -511,9 +494,6 @@ def unregister():
     print("Removing drawer listener " + str(s_my_drawer))
     if(s_my_drawer in LeapModal.drawCallbacks):
         LeapModal.drawCallbacks.remove(s_my_drawer)
-    print("Removing modal listener " + str(s_my_modal_listener))
-    if(s_my_modal_listener in LeapModal.modalCallbacks):
-        LeapModal.modalCallbacks.remove(s_my_modal_listener)
 
     print("Removing draw handle " + str(s_draw_handler))
     if(s_draw_handler != None):
@@ -523,16 +503,8 @@ def unregister():
 
     print("Unregistering keymaps for body selection...", end="")
     # handle the keymap
-    # wm = bpy.context.window_manager
-    # for edit_mode in EDIT_MODES:
-    #     km = wm.keyconfigs.addon.keymaps[edit_mode]
-    #     for kmi in body_selection_keymap_items:
-    #         if(kmi in km.keymap_items.values()):
-    #             print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
-    #             km.keymap_items.remove(kmi)
-
     for km, kmi in body_selection_keymap_items:
-        print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
+        #print("\t\tRemove from Addon/Pose Item '" + kmi.name +"'\t'" + kmi.idname + "'")
         km.keymap_items.remove(kmi)
     body_selection_keymap_items.clear()
 

@@ -1137,6 +1137,8 @@ class LeapModal(bpy.types.Operator):
     targetObjectName = StringProperty(name="target_object_name", description="The name of the object to manipulate. If None, the active object will be used", default="")
     targetPoseBoneName = StringProperty(name="target_posebone_name", description="The name of the posebone to manipulate. If None, the active posebone will be used", default="")
     
+    selectTarget = BoolProperty(name="target_select", description="When True, and targets are specified directly, the targets are also forced to be the selected objects", default=False)
+    activateTarget = BoolProperty(name="activate_select", description="When True, and targets are specified directly, the targets are also forced to be the active objects", default=False)
     
     # by default we use palm
     translationUseFinger = BoolProperty(name="translate_use_finger", default=False, description="Finger movement will used to translate the object")
@@ -1244,22 +1246,57 @@ class LeapModal(bpy.types.Operator):
         #            print("perspective_matrix=" + str(region3d.perspective_matrix))
         #            print("view_distance=" + str(region3d.view_distance))
         #            print("view_location=" + str(region3d.view_location))
-        
+
+        arm = LeapModal.getSelectedArmature()        
 
         #
         # Object selection
         #target_object = self.getSelectedObject()
         if(self.targetPoseBoneName != ""):
+
             target_object = self.getActiveArmatureBone(self.targetPoseBoneName)
+
             if(target_object == None):
                 self.report({'ERROR'}, "Can't find bone named '"+self.targetPoseBoneName+"' in selected armature.")
                 return {'CANCELLED'}
 
+            #assert(arm!=None)
+
+            if(self.selectTarget or self.activateTarget):
+                if(bpy.context.selected_pose_bones != None):    # Might be None, if we are not in POSE mode.
+                    for pb in bpy.context.selected_pose_bones:
+                        pb.bone.select=False
+
+
+            if(self.selectTarget):
+                target_object.bone.select=True
+
+            if(self.activateTarget):
+                # We need to set the reference to the .bone field of the target PoseBone.
+                bpy.data.armatures[arm.name].bones.active=target_object.bone
+
+            # Bleah! Dirty trick to force the redraw of the timeline.
+            for a in context.screen.areas:
+                a.tag_redraw()
+
         elif(self.targetObjectName != ""):
+
             if(not self.targetObjectName in context.data.objects):
                 self.report({'ERROR'}, "Can't find object named '"+self.targetObjectName+"'.")
                 return {'CANCELLED'}
+
             target_object = context.data.objects[self.targetObjectName]
+
+            if(self.selectTarget or self.activateTarget):
+                for o in bpy.context.selected_objects:
+                    o.select=False
+
+            if(self.selectTarget):
+                target_object.select=True
+
+            if(self.activateTarget):
+                context.scene.objects.active=target_object
+
         elif(bpy.context.mode == 'POSE'):
             target_object = bpy.context.active_pose_bone
         else:
@@ -1296,7 +1333,6 @@ class LeapModal(bpy.types.Operator):
             self.obj_rotator.reset()
         
         
-        arm = LeapModal.getSelectedArmature()
 
     
         if(self.isElbowSwivelRotating):
@@ -1522,6 +1558,7 @@ class LeapModal(bpy.types.Operator):
             return None
         
         return arm.pose.bones[bone_name]
+
     
     
     #

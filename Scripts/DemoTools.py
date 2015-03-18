@@ -34,9 +34,6 @@ import re
 import mathutils
 
 
-#ARMATURE_NAME = "Human1-mhxrig-expr-advspine"
-
-
 def getFirstArmature(context):
     """Returns the selected armature. Or None"""
     
@@ -58,8 +55,12 @@ class DemoCaptureView(bpy.types.Operator):
     def execute(self, context):
         # auto key: off
         context.scene.tool_settings.use_keyframe_insert_auto = False
-        
+
         bpy.context.window.screen = bpy.data.screens['Capture View']
+
+        # Body selection keys
+        #bpy.context.window_manager.leap_nui_body_selection_active = False
+
         return {'FINISHED'}
 
 
@@ -83,6 +84,11 @@ class DemoEditView(bpy.types.Operator):
         context.scene.tool_settings.use_keyframe_insert_auto = True
         
         bpy.context.window.screen = bpy.data.screens['Edit View']
+
+        # Body selection keys
+        # Doesn't work, because the panel is activated on the old screen!
+        #bpy.context.window_manager.leap_nui_body_selection_active = True
+
         return {'FINISHED'}
 
 
@@ -104,7 +110,7 @@ class FreePlay(bpy.types.Operator):
         
         #
         # Run operators
-        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=True, isElbowsDirectlyControlled=True)
+        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=context.scene.signrecdemo_capture_fingers, isElbowsDirectlyControlled=context.scene.signrecdemo_capture_elbows)
         # do not instantiate another timer if another modal command already did.
         bpy.ops.object.faceshift_modal(instantiateTimer=False)
         
@@ -189,7 +195,7 @@ class StartRecording(bpy.types.Operator):
         
         #
         # Run operators
-        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=True, isElbowsDirectlyControlled=True)
+        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=context.scene.signrecdemo_capture_fingers, isElbowsDirectlyControlled=context.scene.signrecdemo_capture_elbows)
         # do not instantiate another timer if another modal command already did.
         bpy.ops.object.faceshift_modal(instantiateTimer=False)
         # run the ESC catcher to stop the animation play
@@ -481,18 +487,33 @@ class SignRecordingDemoPanel(bpy.types.Panel):
         
         self.layout.separator()
         
-        self.layout.operator("scene.signrecdemo_play_stop", text="PLAY / STOP")
         
-        self.layout.separator()
         
         r = self.layout.row()
         r.label(text="EDIT")
+
         r.operator("scene.signrecdemo_demoviewedit", text=" ", icon='RIGHTARROW')
+
+        self.layout.operator("scene.signrecdemo_play_stop", text="PLAY / STOP")
+        r = self.layout.row()
+        #bpy.ops.screen.keyframe_jump(next=True)
+        props=r.operator("screen.keyframe_jump", text="<<")
+        props.next=False
+        r.label(text="Keyframe")
+        props=r.operator("screen.keyframe_jump", text=">>")
+        props.next=True
+
+        self.layout.separator()
         
         self.layout.operator("object.mh_delete_keyframe", text="DELETE Keyframe")
         self.layout.operator("scene.signrecdemo_store_hold", text="Store HOLD")
         self.layout.operator("scene.signrecdemo_insert_hold", text="Insert HOLD")
-        
+
+        self.layout.separator()
+        self.layout.separator()
+        self.layout.label("Preferences:")
+        self.layout.prop(data=bpy.context.scene, property="signrecdemo_capture_elbows")
+        self.layout.prop(data=bpy.context.scene, property="signrecdemo_capture_fingers")
         #        self.layout.separator()
         #        self.layout.label(text="EDIT")
         #        r = self.layout.row()
@@ -508,6 +529,8 @@ def register():
     print("Registering SignRecordingDemo operators...", end="")
     
     bpy.types.Scene.signrecdemo_simplification_max_keyframes = bpy.props.IntProperty(name="Max Keyframes", default = 5, min=3, description="The maximum number of kexframes after simplification")
+    bpy.types.Scene.signrecdemo_capture_elbows = bpy.props.BoolProperty(name="Capture Elbows", default=False, description="Captures the Elbows when recording with the Leap")
+    bpy.types.Scene.signrecdemo_capture_fingers = bpy.props.BoolProperty(name="Capture Fingers", default=True, description="Captures the FIngers when recording with the Leap")
     
     bpy.utils.register_class(DemoCaptureView)
     bpy.utils.register_class(DemoEditView)
@@ -547,6 +570,10 @@ def unregister():
     bpy.utils.unregister_class(SignRecordingDemoPanel)
     bpy.utils.unregister_class(SelectRightHand)
     bpy.utils.unregister_class(SelectLeftHand)
+
+    del bpy.context.scene.signrecdemo_simplification_max_keyframes
+    del bpy.context.scene.signrecdemo_capture_elbows
+    del bpy.context.scene.signrecdemo_capture_fingers
     
     print("ok")
 

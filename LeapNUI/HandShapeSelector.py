@@ -306,7 +306,7 @@ class HandShapeSelector(bpy.types.Operator):
                 # Retrieve entries from the pose library
                 action = bpy.data.actions[self.POSE_LIBRARY_NAME]
                 for marker in action.pose_markers:
-                    print(marker)
+                    #print(marker)
                     flags = getHandBitFlag(h['id'], leap_dict)
                     #print("{0:b}".format(flags))
                     #print("Found marker " + str(marker.name) + " at frame " + str(marker.frame))
@@ -342,30 +342,26 @@ class HandShapeSelector(bpy.types.Operator):
 
             n_items = len(self.selectable_items)
             
+            selection_stable_range = SELECTION_STABLE_RANGE
             if(FINGER_TIP_SELECTION):
                 # use finger coordinates
                 y = p['tipPosition'][1]
             else:
                 # Use palm coordinates
                 y = h['palmPosition'][1]
+                # When using the palm, the precision is much lower. Increase the stability zone.
+                selection_stable_range *= 3.0
 
             if(self.central_finger_y == None):
                 self.central_finger_y = y
 
             # The finger offset with respect to the central initial y
             offset_y = y - self.central_finger_y
-
-
-            #self.normalized_finger_y = (y - SELECTION_MIN_Y) / (SELECTION_MAX_Y - SELECTION_MIN_Y)
-
-            normalized_offset_y = offset_y / SELECTION_STABLE_RANGE
+            normalized_offset_y = offset_y / selection_stable_range
 
             # remodulate from range [-1,1] to range [0,1]
             self.normalized_finger_y = (normalized_offset_y + 1) / 2
-            # or
-            # self.normalized_finger_y = (offset_y + SELECTION_STABLE_RANGE) / (SELECTION_STABLE_RANGE * 2)
-
-            print(str(y) + "\toffy="+str(offset_y)+"\tnorm_finger_y="+str(self.normalized_finger_y))
+            #print(str(y) + "\toffy="+str(offset_y)+"\tnorm_finger_y="+str(self.normalized_finger_y))
 
 
             #
@@ -441,12 +437,12 @@ class HandShapeSelector(bpy.types.Operator):
             #     # scroll factor normalized and clamped in [-1,0].
 
 
-            if(offset_y>SELECTION_STABLE_RANGE):
-                scroll_factor = (offset_y - SELECTION_STABLE_RANGE) / SCROLL_ZONE_SIZE
+            if(offset_y>selection_stable_range):
+                scroll_factor = (offset_y - selection_stable_range) / SCROLL_ZONE_SIZE
                 scroll_factor = min(scroll_factor, 1.0)
                 # scroll factor normalized and clamped in [0-1].
-            elif(offset_y<SELECTION_STABLE_RANGE):
-                scroll_factor = (offset_y + SELECTION_STABLE_RANGE) / SCROLL_ZONE_SIZE
+            elif(offset_y<selection_stable_range):
+                scroll_factor = (offset_y + selection_stable_range) / SCROLL_ZONE_SIZE
                 scroll_factor = max(scroll_factor, -1.0)
                 # scroll factor normalized and clamped in [-1,0].
 
@@ -548,6 +544,9 @@ class HandShapeSelector(bpy.types.Operator):
 
     def draw_callback_px_moving_text(self, context):
 
+        DPI = bpy.context.user_preferences.system.dpi
+        #print("Rendering moving text with DPI "+str(DPI))
+
         #print("selection= "+str(self.selection_num))
         int_selection_num = int(self.selection_num)
 
@@ -581,27 +580,14 @@ class HandShapeSelector(bpy.types.Operator):
         central_y = text_bottom_y + int(text_area_height / 2)
 
         
-        #
-        # Draw pointing finger
-        bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
-        
-        # transparence
-        bgl.glEnable(bgl.GL_BLEND)
-        bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
 
-        # The finger icon (64x64) has the finget tip at pixel 23 from the top, or 40 from the bottom
-        pos_y = central_y - 40
-        
-        if(not self.selector_visible):
-            pos_x = (context.region.width / 2) + self.ICON_SIZE
-            bgl.glRasterPos2f(pos_x, pos_y)
-            bgl.glDrawPixels(self.ICON_SIZE, self.ICON_SIZE, bgl.GL_RGBA, bgl.GL_FLOAT, icon_pointing_finger_missing)
-        else:
-            pos_x = (context.region.width / 2)
-            bgl.glRasterPos2f(pos_x, pos_y)
-            bgl.glDrawPixels(self.ICON_SIZE, self.ICON_SIZE, bgl.GL_RGBA, bgl.GL_FLOAT, icon_pointing_finger)
 
-        bgl.glPopClientAttrib()
+
+        bgl.glPushAttrib(bgl.GL_CLIENT_ALL_ATTRIB_BITS)
+
+        # Set the font size now, because it will be needed to estimate the background size.
+        blf.size(0, font_size, DPI)
+
         
         #
         # Draw background
@@ -610,16 +596,13 @@ class HandShapeSelector(bpy.types.Operator):
             item_w,item_h = blf.dimensions(0, item)
             if(item_w > max_text_width):
                 max_text_width = item_w
-        self.draw_bg(context, top_y=text_top_y, bottom_y=text_bottom_y, width=max_text_width*1.5)
+        self.draw_bg(context, top_y=text_top_y, bottom_y=text_bottom_y, width=max_text_width*1.5, cover_pointer=True)
         
 
 
         #
         # Draw entries
         #
-        bgl.glPushAttrib(bgl.GL_CLIENT_ALL_ATTRIB_BITS)
-
-        blf.size(0, font_size, 72)
         pos_x = 0
         
         # The first item will be drawn on the very top, according to the current selection and its position on screen
@@ -648,6 +631,30 @@ class HandShapeSelector(bpy.types.Operator):
                 
             
         bgl.glPopAttrib()
+
+
+        #
+        # Draw pointing finger
+        bgl.glPushClientAttrib(bgl.GL_CURRENT_BIT|bgl.GL_ENABLE_BIT)
+        
+        # transparence
+        bgl.glEnable(bgl.GL_BLEND)
+        bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
+
+        # The finger icon (64x64) has the finget tip at pixel 23 from the top, or 40 from the bottom
+        pos_y = central_y - 40
+        
+        if(not self.selector_visible):
+            pos_x = (context.region.width / 2) + self.ICON_SIZE
+            bgl.glRasterPos2f(pos_x, pos_y)
+            bgl.glDrawPixels(self.ICON_SIZE, self.ICON_SIZE, bgl.GL_RGBA, bgl.GL_FLOAT, icon_pointing_finger_missing)
+        else:
+            pos_x = (context.region.width / 2)
+            bgl.glRasterPos2f(pos_x, pos_y)
+            bgl.glDrawPixels(self.ICON_SIZE, self.ICON_SIZE, bgl.GL_RGBA, bgl.GL_FLOAT, icon_pointing_finger)
+
+        bgl.glPopClientAttrib()
+
        
         pass
 
@@ -659,6 +666,10 @@ class HandShapeSelector(bpy.types.Operator):
 
     def draw_callback_px_moving_arrow(self, context):
         #print("drawing")
+
+        DPI = bpy.context.user_preferences.system.dpi
+        print("Rendering moving arrow with DPI "+str(DPI))
+
 
         int_selection_num = int(self.selection_num)
         n_items = len(self.selectable_items)
@@ -692,7 +703,7 @@ class HandShapeSelector(bpy.types.Operator):
        
         bgl.glPushAttrib(bgl.GL_CLIENT_ALL_ATTRIB_BITS)
 
-        blf.size(0, font_size, 72)
+        blf.size(0, font_size, DPI)
 
         #
         # Draw background
@@ -758,7 +769,7 @@ class HandShapeSelector(bpy.types.Operator):
 
 
 
-    def draw_bg(self, context, top_y, bottom_y, width):
+    def draw_bg(self, context, top_y, bottom_y, width, cover_pointer=False):
         bgl.glEnable(bgl.GL_BLEND)
         bgl.glBlendFunc(bgl.GL_SRC_ALPHA, bgl.GL_ONE_MINUS_SRC_ALPHA)
 
@@ -766,6 +777,9 @@ class HandShapeSelector(bpy.types.Operator):
         
         right_x = context.region.width / 2
         left_x = right_x - width
+
+        if(cover_pointer):
+            right_x += self.ICON_SIZE
                 
         bgl.glVertex2f(left_x,bottom_y)
         bgl.glColor4f(*self.BACKGROUND_COLOR)
