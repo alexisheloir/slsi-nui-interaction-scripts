@@ -111,8 +111,9 @@ class FreePlay(bpy.types.Operator):
         #
         # Run operators
         bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=context.scene.signrecdemo_capture_fingers, isElbowsDirectlyControlled=context.scene.signrecdemo_capture_elbows)
-        # do not instantiate another timer if another modal command already did.
-        bpy.ops.object.faceshift_modal(instantiateTimer=False)
+        if(bpy.context.scene.signrecdemo_capture_face):
+            # do not instantiate another timer if another modal command already did.
+            bpy.ops.object.faceshift_modal(instantiateTimer=False)
         
         bpy.ops.scene.signrecdemo_demoviewcapture()
         
@@ -196,8 +197,10 @@ class StartRecording(bpy.types.Operator):
         #
         # Run operators
         bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=context.scene.signrecdemo_capture_fingers, isElbowsDirectlyControlled=context.scene.signrecdemo_capture_elbows)
-        # do not instantiate another timer if another modal command already did.
-        bpy.ops.object.faceshift_modal(instantiateTimer=False)
+        if(bpy.context.scene.signrecdemo_capture_face):
+            # do not instantiate another timer if another modal command already did.
+            bpy.ops.object.faceshift_modal(instantiateTimer=False)
+
         # run the ESC catcher to stop the animation play
         bpy.ops.scene.signrecdemo_playpauser()
         
@@ -328,47 +331,6 @@ class PlayStopRecordedSign(bpy.types.Operator):
         return {'FINISHED'}
 
 
-#
-#
-#
-
-class SelectRightHand(bpy.types.Operator):
-    """Small support modal operator to select the interpreter right hand."""
-    
-    bl_idname = "scene.signrecdemo_selectrighthand"
-    bl_label = "Select the right hand"
-    
-    
-    def execute(self, context):
-        
-        arm = getFirstArmature(context)
-        bone = arm.pose.bones["Wrist_R"]
-        #context.active_pose_bone = bone
-        # @see http://aligorith.blogspot.de/2011/02/scripting-25-faq-setting-active-bone.html
-        arm.bones.active = bone.bone
-        
-        return {'FINISHED'}
-
-#
-#
-#
-
-class SelectLeftHand(bpy.types.Operator):
-    """Small support modal operator to select the interpreter left hand."""
-    
-    bl_idname = "scene.signrecdemo_selectlefthand"
-    bl_label = "Select the left hand"
-    
-    
-    def execute(self, context):
-        
-        arm = getFirstArmature(context)
-        bone = arm.pose.bones["Wrist_L"]
-        #context.active_pose_bone = bone
-        # @see http://aligorith.blogspot.de/2011/02/scripting-25-faq-setting-active-bone.html
-        arm.bones.active = bone.bone
-        
-        return {'FINISHED'}
 
 #
 #
@@ -514,12 +476,7 @@ class SignRecordingDemoPanel(bpy.types.Panel):
         self.layout.label("Preferences:")
         self.layout.prop(data=bpy.context.scene, property="signrecdemo_capture_elbows")
         self.layout.prop(data=bpy.context.scene, property="signrecdemo_capture_fingers")
-        #        self.layout.separator()
-        #        self.layout.label(text="EDIT")
-        #        r = self.layout.row()
-        #        r.label(text="Arm:")
-        #        r.operator("scene.signrecdemo_selectrighthand", text="Right")
-        #        r.operator("scene.signrecdemo_selectlefthand", text="Left")
+        self.layout.prop(data=bpy.context.scene, property="signrecdemo_capture_face")
         pass
 
 
@@ -530,7 +487,8 @@ def register():
     
     bpy.types.Scene.signrecdemo_simplification_max_keyframes = bpy.props.IntProperty(name="Max Keyframes", default = 5, min=3, description="The maximum number of kexframes after simplification")
     bpy.types.Scene.signrecdemo_capture_elbows = bpy.props.BoolProperty(name="Capture Elbows", default=False, description="Captures the Elbows when recording with the Leap")
-    bpy.types.Scene.signrecdemo_capture_fingers = bpy.props.BoolProperty(name="Capture Fingers", default=True, description="Captures the FIngers when recording with the Leap")
+    bpy.types.Scene.signrecdemo_capture_fingers = bpy.props.BoolProperty(name="Capture Fingers", default=True, description="Captures the Fingers when recording with the Leap")
+    bpy.types.Scene.signrecdemo_capture_face = bpy.props.BoolProperty(name="Capture Face", default=True, description="Enables the animation of the face using the data from FaceShift")
     
     bpy.utils.register_class(DemoCaptureView)
     bpy.utils.register_class(DemoEditView)
@@ -547,8 +505,6 @@ def register():
     #bpy.utils.register_class(EditPose)
     #bpy.utils.register_class(Store)
     bpy.utils.register_class(SignRecordingDemoPanel)
-    bpy.utils.register_class(SelectRightHand)
-    bpy.utils.register_class(SelectLeftHand)
     print("ok")
 
 def unregister():
@@ -568,12 +524,11 @@ def unregister():
     #bpy.utils.unregister_class(EditPose)
     #bpy.utils.unregister_class(Store)
     bpy.utils.unregister_class(SignRecordingDemoPanel)
-    bpy.utils.unregister_class(SelectRightHand)
-    bpy.utils.unregister_class(SelectLeftHand)
 
     del bpy.context.scene.signrecdemo_simplification_max_keyframes
     del bpy.context.scene.signrecdemo_capture_elbows
     del bpy.context.scene.signrecdemo_capture_fingers
+    del bpy.context.scene.signrecdemo_capture_face
     
     print("ok")
 

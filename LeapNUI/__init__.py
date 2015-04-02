@@ -88,8 +88,6 @@ def register():
 
     bpy.types.WindowManager.leap_nui_keyboardless_active = bpy.props.BoolProperty(name="Keyboardless Activation", description="Switch the use of the keyboardless mode to activate the LeapMotion", default=False, options={'SKIP_SAVE'})
 
-    bpy.types.WindowManager.leap_nui_keyboardless_active = bpy.props.BoolProperty(name="Keyboardless Activation", description="Switch the use of the keyboardless mode to activate the LeapMotion", default=False, options={'SKIP_SAVE'})
-
 
     bpy.utils.register_class(LeapModal)
 
