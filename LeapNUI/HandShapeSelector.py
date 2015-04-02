@@ -262,7 +262,8 @@ class HandShapeSelector(bpy.types.Operator):
                 self.report({'INFO'}, "No pose selected")
                 return {"CANCELLED"}
             else:
-                applyPose(armature=self.selected_armature, pose_library_name=self.POSE_LIBRARY_NAME, hand_bone_names=self.HAND_BONE_NAMES, pose_number=n, try_record=True)
+                selection_name = self.selectable_items[n]
+                applyPose(armature=self.selected_armature, pose_library_name=self.POSE_LIBRARY_NAME, hand_bone_names=self.HAND_BONE_NAMES, pose_name=selection_name, try_record=True)
                 resetFingerControllers(armature=self.selected_armature, controller_names=self.controller_names, try_record=True) 
                 return {"FINISHED"}
         
@@ -492,10 +493,11 @@ class HandShapeSelector(bpy.types.Operator):
             #self.selection_num = (int)((last_id-first_id) * (1-self.normalized_finger_y))
             self.selection_num = (last_id-first_id) * (1-clamped_y)
             self.selection_num += first_id
+            selection_name = self.selectable_items[int(self.selection_num)]
             #print("Selected_item = " + str(self.selection_num))
             #print(str(self.selection_num) + "\t" + str(self.selection_window_first_item) + "\t" + str(last_id) + "\t" + str(clamped_y))
 
-            applyPose(armature=self.selected_armature, pose_library_name=self.POSE_LIBRARY_NAME, hand_bone_names=self.HAND_BONE_NAMES, pose_number=int(self.selection_num), try_record=False)
+            applyPose(armature=self.selected_armature, pose_library_name=self.POSE_LIBRARY_NAME, hand_bone_names=self.HAND_BONE_NAMES, pose_name=selection_name, try_record=False)
 
 
 
@@ -791,11 +793,9 @@ class HandShapeSelector(bpy.types.Operator):
 
 
 
-def applyPose(armature, pose_library_name, hand_bone_names, pose_number, try_record):
-    #print("Applying pose " + str(n))
-    #bpy.ops.poselib.apply_pose(n)
-    pose_name = bpy.data.actions[pose_library_name].pose_markers[pose_number].name
-    #print("Applying pose " + str(pose_number) + " " +pose_name)
+def applyPose(armature, pose_library_name, hand_bone_names, pose_name, try_record):
+    #pose_name = bpy.data.actions[pose_library_name].pose_markers[pose_number].name
+    #print("Applying pose " +pose_name)
     poses_data = getPoseLibraryData(pose_library_name, hand_bone_names)
     bones_data = poses_data[pose_name]
     applyBoneRotations(armature, bones_data, try_record)
