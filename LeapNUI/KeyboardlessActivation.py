@@ -203,7 +203,7 @@ class LeapDictListener:
                 #fm = li.leap_listener.hand_motion_analyzer.handFastMovement(LeapInteractionConstants.FAST_MOVEMENT_SPEED, LeapInteractionConstants.FAST_MOVEMENT_LOOKBACK_SECS)
                 #print("Palm Velocity="+str(palm_vel)+" (threshold="+str(LeapInteractionConstants.PINCH_FAST_MOVEMENT_SPEED))
 
-                print("pinchStrength="+str(pinchStrength)+"\tconf="+str(confidence))
+                #print("pinchStrength="+str(pinchStrength)+"\tconf="+str(confidence))
             
                 # Activate tracking!!!
                 #print("hand age="+str(self.hand_motion_analyzer.handAge()))
@@ -297,6 +297,7 @@ class KeyboardLessLogicModalListener:
         #self.tracking_start = None
         li.leap_listener.resetHandId()
         li.last_drop_pos = None
+        leap_modal.obj_translator.setScale(1.0)
         pass
 
 
@@ -307,6 +308,7 @@ class KeyboardLessLogicModalListener:
         #self.tracking_start = None
         li.leap_listener.resetHandId()
         li.last_drop_pos = None
+        leap_modal.obj_translator.setScale(1.0)
         pass
     
     def controllersUpdated(self, leap_modal, context):
