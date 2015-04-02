@@ -410,17 +410,23 @@ def HeadRot2Rig(target_object, head_rotation_quat):
     bones[BoneSet.MH_CONTROLLER_NECK].rotation_mode = 'QUATERNION'
     bones[BoneSet.MH_CONTROLLER_NECK].rotation_quaternion = (XZ_mirror_matrix * head_rotation_quat.to_matrix() * XZ_mirror_matrix.inverted()).to_quaternion()
 
+#static, taken from the default pose of the MakeHuman puppet.
+gaze_stand_matrix = mathutils.Matrix(((1.0, 2.498001805406602e-16, 8.742277657347586e-08, -2.145661907383925e-16),
+        (-2.375877272697835e-14, -1.0000001192092896, 3.371387720108032e-07, -6.304350852966309),
+        (8.742277657347586e-08, -2.849847078323364e-07, -1.0, 16.39949607849121),
+        (0.0, 0.0, 0.0, 1.0)))
 
 def EyesRot2Skeleton(target_object, leye_theta, leye_phi, reye_theta, reye_phi):
     #print(str(leye_theta) + "\t" + str(leye_phi))
 
+    #print("eyes IN: "+ str(leye_theta) +"\t"+ str(leye_phi))
     # Take reference to the rig bones...
     bones = bpy.data.objects[target_object].pose.bones
 
     gaze_bone = bones[BoneSet.MH_CONTROLLER_GAZE]
     
     # This is the matrix of the Gaze at "stand position". Constant. Might be computed only once at initialization.
-    gaze_stand_matrix = gaze_bone.matrix * gaze_bone.matrix_basis.inverted()
+    #gaze_stand_matrix = gaze_bone.matrix * gaze_bone.matrix_basis.inverted()
     #print(str(gaze_stand_matrix))
     
     GAZE_DISTANCE = 6 # The distance of the Gaze controller from the eye
@@ -431,13 +437,15 @@ def EyesRot2Skeleton(target_object, leye_theta, leye_phi, reye_theta, reye_phi):
     
     #new_gaze_absolute_direction = head_matrix.to_quaternion() * eye_rot_euler.to_quaternion() * mathutils.Vector((0, -GAZE_DISTANCE, 0))
     new_gaze_absolute_direction = head_absolute_rotation * eye_rot_euler.to_quaternion() * mathutils.Vector((0, -GAZE_DISTANCE, 0))
+
+    #print("eyes out1:" + str(head_absolute_rotation) +"\t"+ str(eye_rot_euler) +"\t"+ str(new_gaze_absolute_direction))
     
     #new_gaze_absolute_location = bones["Eye_L"].matrix.to_translation() + new_gaze_absolute_direction
     new_gaze_absolute_location = bones["DEF-eye.L"].matrix.to_translation() + new_gaze_absolute_direction
     
     new_gaze_location = gaze_stand_matrix * new_gaze_absolute_location
     
-    #print("Setting Gaze to " + str(new_gaze_location))
+    #print("Eyes OUT " + str(new_gaze_absolute_location) +"\t"+ str(new_gaze_location))
     
     gaze_bone.location = new_gaze_location
     
