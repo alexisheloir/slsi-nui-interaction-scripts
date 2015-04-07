@@ -705,6 +705,7 @@ class MakeHumanHandsDirectController:
     GLOBAL_ALIGNMENT_R = mathutils.Quaternion((0.012777568772435188, -0.998083770275116, 0.00827696267515421, -0.05997561663389206))
     
     isMirrored = False
+    enableRotation = True
     
     target_armature = None
     
@@ -723,6 +724,9 @@ class MakeHumanHandsDirectController:
     
     def setMirrored(self, b):
         self.isMirrored = b
+
+    def setEnableRotation(self, b):
+        self.enableRotation = b
     
     def reset(self):
         
@@ -793,30 +797,31 @@ class MakeHumanHandsDirectController:
 
             # When the hand is straight over the Leap, the resulting quaternion must be Identity.
             # This calc is made in Leap/OpenGL axes space.
-            h_z = - mathutils.Vector(hand["direction"])
-            h_y = - mathutils.Vector(hand["palmNormal"])
-            h_x = h_y.cross(h_z)
-            
-            # Build the rotation matrix of the hand using the data of the 3 orthogonal vectors (hand direction, palm normal, and their outgoing cross product)
-            rot_mat = mathutils.Matrix.Rotation(0, 3, 'X')
-            rot_mat[0][0], rot_mat[1][0], rot_mat[2][0] = h_x[0], h_x[1], h_x[2]
-            rot_mat[0][1], rot_mat[1][1], rot_mat[2][1] = h_y[0], h_y[1], h_y[2]
-            rot_mat[0][2], rot_mat[1][2], rot_mat[2][2] = h_z[0], h_z[1], h_z[2]
-            
-            
-            # Convert the rotations in Blender orientation axes
-            if(self.isMirrored):
-                rot = (blender_to_leap_mirror_rotmat.inverted() * rot_mat * blender_to_leap_mirror_rotmat).to_quaternion()
-            else:
-                rot = (blender_to_leap_rotmat.inverted() * rot_mat * blender_to_leap_rotmat).to_quaternion()
+            if(self.enableRotation):
+                h_z = - mathutils.Vector(hand["direction"])
+                h_y = - mathutils.Vector(hand["palmNormal"])
+                h_x = h_y.cross(h_z)
+                
+                # Build the rotation matrix of the hand using the data of the 3 orthogonal vectors (hand direction, palm normal, and their outgoing cross product)
+                rot_mat = mathutils.Matrix.Rotation(0, 3, 'X')
+                rot_mat[0][0], rot_mat[1][0], rot_mat[2][0] = h_x[0], h_x[1], h_x[2]
+                rot_mat[0][1], rot_mat[1][1], rot_mat[2][1] = h_y[0], h_y[1], h_y[2]
+                rot_mat[0][2], rot_mat[1][2], rot_mat[2][2] = h_z[0], h_z[1], h_z[2]
+                
+                
+                # Convert the rotations in Blender orientation axes
+                if(self.isMirrored):
+                    rot = (blender_to_leap_mirror_rotmat.inverted() * rot_mat * blender_to_leap_mirror_rotmat).to_quaternion()
+                else:
+                    rot = (blender_to_leap_rotmat.inverted() * rot_mat * blender_to_leap_rotmat).to_quaternion()
 
-            # Compose with the global alignment to bring the character hand in frontal position.
-            rot = rot * GLOBAL_ALIGNMENT
+                # Compose with the global alignment to bring the character hand in frontal position.
+                rot = rot * GLOBAL_ALIGNMENT
 
-            # Convert to local system
-            rot = PARENT.inverted().to_quaternion() * rot
+                # Convert to local system
+                rot = PARENT.inverted().to_quaternion() * rot
 
-            hand_controller.rotation_quaternion = rot
+                hand_controller.rotation_quaternion = rot
 
             
             #
@@ -848,10 +853,13 @@ class MakeHumanHandsDirectController:
 
             hand_controller.location = pos
 
+            #
             # RECORD (eventually)
+            #
             if(bpy.context.scene.tool_settings.use_keyframe_insert_auto):
                 frame = bpy.context.scene.frame_current
-                hand_controller.keyframe_insert(data_path="rotation_quaternion", frame=frame)
+                if(self.enableRotation):
+                    hand_controller.keyframe_insert(data_path="rotation_quaternion", frame=frame)
                 hand_controller.keyframe_insert(data_path="location", frame=frame)
             
 
@@ -1127,10 +1135,11 @@ class LeapModal(bpy.types.Operator):
     
     isTranslating = BoolProperty(name="translate", description="Palm/Finger movement will translate the object")
     isTranslationMirrored = BoolProperty(name="translate_mirror", description="Whether the translation is mirrored on the y-axis")
-    isRotating = BoolProperty(name="rotate", description="Finger movement will rotate the object")
+    isRotating = BoolProperty(name="rotate", description="Palm/Finger movement will rotate the object")
     isElbowSwivelRotating = BoolProperty(name="elbow_swivel_rotate", description="Finger Circle gesture rotates the elbow swivel angle")
     isHandsDirectlyControlled = BoolProperty(name="hands_direct_control", description="Hands position is directly controlled by hands detected in Leap")
     handsMirrorMode = BoolProperty(name="hands_mirror_mode", description="Hands direct control is applied with the 'mirror' metaphor")
+    handsEnableRotation = BoolProperty(name="hands_enable_rotation", description="Hands direct control will apply also rotation", default=True)
     isFingersDirectlyControlled = BoolProperty(name="fingers_direct_control", description="Fingers extension and orientation is directly controlled by hands detected in Leap")
     isElbowsDirectlyControlled = BoolProperty(name="elbows_direct_control", description="Elbows position is directly controlled by hands and forearms detected in Leap")
     
@@ -1360,6 +1369,7 @@ class LeapModal(bpy.types.Operator):
             
             self.hands_direct_controller.setTargetArmature(arm)
             self.hands_direct_controller.setMirrored(self.handsMirrorMode)
+            self.hands_direct_controller.setEnableRotation(self.handsEnableRotation)
             self.hands_direct_controller.reset()
 
 

@@ -110,7 +110,7 @@ class FreePlay(bpy.types.Operator):
         
         #
         # Run operators
-        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=context.scene.signrecdemo_capture_fingers, isElbowsDirectlyControlled=context.scene.signrecdemo_capture_elbows)
+        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsEnableRotation=context.scene.signrecdemo_capture_hands_rotation, handsMirrorMode=True, isFingersDirectlyControlled=context.scene.signrecdemo_capture_fingers, isElbowsDirectlyControlled=context.scene.signrecdemo_capture_elbows)
         if(bpy.context.scene.signrecdemo_capture_face):
             # do not instantiate another timer if another modal command already did.
             bpy.ops.object.faceshift_modal(instantiateTimer=False)
@@ -196,7 +196,7 @@ class StartRecording(bpy.types.Operator):
         
         #
         # Run operators
-        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsMirrorMode=True, isFingersDirectlyControlled=context.scene.signrecdemo_capture_fingers, isElbowsDirectlyControlled=context.scene.signrecdemo_capture_elbows)
+        bpy.ops.object.leap_modal(isHandsDirectlyControlled=True, handsEnableRotation=context.scene.signrecdemo_capture_hands_rotation, handsMirrorMode=True, isFingersDirectlyControlled=context.scene.signrecdemo_capture_fingers, isElbowsDirectlyControlled=context.scene.signrecdemo_capture_elbows)
         if(bpy.context.scene.signrecdemo_capture_face):
             # do not instantiate another timer if another modal command already did.
             bpy.ops.object.faceshift_modal(instantiateTimer=False)
@@ -477,6 +477,7 @@ class SignRecordingDemoPanel(bpy.types.Panel):
         self.layout.prop(data=bpy.context.scene, property="signrecdemo_capture_elbows")
         self.layout.prop(data=bpy.context.scene, property="signrecdemo_capture_fingers")
         self.layout.prop(data=bpy.context.scene, property="signrecdemo_capture_face")
+        self.layout.prop(data=bpy.context.scene, property="signrecdemo_capture_hands_rotation")
         pass
 
 
@@ -489,7 +490,8 @@ def register():
     bpy.types.Scene.signrecdemo_capture_elbows = bpy.props.BoolProperty(name="Capture Elbows", default=False, description="Captures the Elbows when recording with the Leap")
     bpy.types.Scene.signrecdemo_capture_fingers = bpy.props.BoolProperty(name="Capture Fingers", default=True, description="Captures the Fingers when recording with the Leap")
     bpy.types.Scene.signrecdemo_capture_face = bpy.props.BoolProperty(name="Capture Face", default=True, description="Enables the animation of the face using the data from FaceShift")
-    
+    bpy.types.Scene.signrecdemo_capture_hands_rotation = bpy.props.BoolProperty(name="Capture Hands Rotation", default=False, description="Enables the recording of the rotation fo the hands")
+
     bpy.utils.register_class(DemoCaptureView)
     bpy.utils.register_class(DemoEditView)
     bpy.utils.register_class(FreePlay)
@@ -529,6 +531,7 @@ def unregister():
     del bpy.context.scene.signrecdemo_capture_elbows
     del bpy.context.scene.signrecdemo_capture_fingers
     del bpy.context.scene.signrecdemo_capture_face
+    del bpy.context.scene.signrecdemo_capture_hands_rotation
     
     print("ok")
 
