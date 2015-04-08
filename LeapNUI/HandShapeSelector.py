@@ -1088,11 +1088,11 @@ def register():
     wm = bpy.context.window_manager
     
     km = wm.keyconfigs.addon.keymaps.new(name='Pose', space_type='EMPTY')
-    kmi = km.keymap_items.new(HandShapeSelector.bl_idname, RHAND_ACTIVATION_CHAR, 'PRESS', ctrl=True, shift=False)
+    kmi = km.keymap_items.new(HandShapeSelector.bl_idname, RHAND_ACTIVATION_CHAR, 'PRESS', ctrl=True, shift=True)
     kmi.properties.use_right_hand = True
     hand_selection_keymap_items.append((km, kmi))
 
-    kmi = km.keymap_items.new(HandShapeSelector.bl_idname, LHAND_ACTIVATION_CHAR, 'PRESS', ctrl=True, shift=False)
+    kmi = km.keymap_items.new(HandShapeSelector.bl_idname, LHAND_ACTIVATION_CHAR, 'PRESS', ctrl=True, shift=True)
     kmi.properties.use_right_hand = False
     hand_selection_keymap_items.append((km, kmi))
  

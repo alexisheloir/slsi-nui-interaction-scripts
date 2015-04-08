@@ -384,7 +384,16 @@ def register():
         kmi.properties.isRotating = True
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_HAND_CONTROLLER_R
-        #kmi.properties.selectTarget = True
+        kmi.properties.activateTarget = True
+        kmi.properties.userData = "3" # icon position to highlight
+        body_selection_keymap_items.append((km, kmi))
+
+        # RIGHT HAND - rotation
+        kmi = km.keymap_items.new(LeapModal.bl_idname, RHAND_CHAR, 'PRESS', ctrl=True, shift=False)
+        kmi.properties.isTranslating = False
+        kmi.properties.isRotating = True
+        kmi.properties.translationUseFinger = False
+        kmi.properties.targetPoseBoneName = MH_HAND_CONTROLLER_R
         kmi.properties.activateTarget = True
         kmi.properties.userData = "3" # icon position to highlight
         body_selection_keymap_items.append((km, kmi))
@@ -404,6 +413,17 @@ def register():
         # LEFT HAND
         kmi = km.keymap_items.new(LeapModal.bl_idname, LHAND_CHAR, 'PRESS', ctrl=False, shift=False)
         kmi.properties.isTranslating = True
+        kmi.properties.isRotating = True
+        kmi.properties.translationUseFinger = False
+        kmi.properties.targetPoseBoneName = MH_HAND_CONTROLLER_L
+        #kmi.properties.selectTarget = True
+        kmi.properties.activateTarget = True
+        kmi.properties.userData = "5" # icon position to highlight
+        body_selection_keymap_items.append((km, kmi))
+
+        # LEFT HAND - rotation
+        kmi = km.keymap_items.new(LeapModal.bl_idname, LHAND_CHAR, 'PRESS', ctrl=True, shift=False)
+        kmi.properties.isTranslating = False
         kmi.properties.isRotating = True
         kmi.properties.translationUseFinger = False
         kmi.properties.targetPoseBoneName = MH_HAND_CONTROLLER_L

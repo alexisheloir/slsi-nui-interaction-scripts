@@ -34,6 +34,7 @@ import re
 import mathutils
 
 
+
 def getFirstArmature(context):
     """Returns the selected armature. Or None"""
     
@@ -424,6 +425,43 @@ class InsertHold(bpy.types.Operator):
 #
 #
 
+# CommunicationChannels = [ 'face', 'hands_position', 'hands_orientation', 'hands_configuration', 'shoulders' ]
+
+#import MakeHumanTools.BoneSet
+
+
+# class StoreCommChannel(bpy.types.Operator):
+#     """Store into buffer the configuration of a selected subset of controllers."""
+    
+#     bl_idname = "scene.signrecdemo_store_comm_channel"
+#     bl_label = "Store Communication Channel"
+#     bl_options = {'REGISTER', 'UNDO'}
+
+#     channel = StringProperty(name="Communication Channel", description="The name of the communication channel to store. One among: " + (','.join(CommunicationChannels)) , default="")
+    
+    
+#     def execute(self, context):
+        
+#         target_frame = bpy.context.scene.frame_current
+
+#         bones = None
+#         if(channel == 'face'):
+#             bones = BoneSet.MH_FACIAL_CONTROLLERS + BoneSet.MH_EYELID_CONTROLLERS
+#         elif(channel == hands_position):
+#             bones = ...
+        
+#         # Select all bones keyable
+#         bpy.ops.object.mh_select_all_pose_bones()
+        
+#         # Copy pose into buffer
+#         bpy.ops.pose.copy()
+        
+#         return {'FINISHED'}
+
+
+#
+#
+#
 
 class SignRecordingDemoPanel(bpy.types.Panel):
     bl_label = "Sign Recording Demo"
@@ -433,13 +471,15 @@ class SignRecordingDemoPanel(bpy.types.Panel):
     
     def draw(self, context):
         self.layout.operator("scene.signrecdemo_reset", text="Reset")
+        self.layout.operator("scene.signrecdemo_freeplay", text="Free Play")
         self.layout.separator()
         r = self.layout.row()
         r.label(text="CAPTURE")
         r.operator("scene.signrecdemo_demoviewcapture", text=" ", icon='RIGHTARROW')
-        self.layout.operator("scene.signrecdemo_freeplay", text="Free Play")
         self.layout.operator("scene.signrecdemo_startrec", text="START Rec")
         #self.layout.operator("scene.signrecdemo_stoprec", text="STOP rec")
+        self.layout.separator()
+        self.layout.operator("object.faceshift_modal", text="Capture face")
         
         self.layout.separator()
         self.layout.operator("scene.signrecdemo_trim", text="Trim")
@@ -487,10 +527,10 @@ def register():
     print("Registering SignRecordingDemo operators...", end="")
     
     bpy.types.Scene.signrecdemo_simplification_max_keyframes = bpy.props.IntProperty(name="Max Keyframes", default = 5, min=3, description="The maximum number of kexframes after simplification")
-    bpy.types.Scene.signrecdemo_capture_elbows = bpy.props.BoolProperty(name="Capture Elbows", default=False, description="Captures the Elbows when recording with the Leap")
-    bpy.types.Scene.signrecdemo_capture_fingers = bpy.props.BoolProperty(name="Capture Fingers", default=True, description="Captures the Fingers when recording with the Leap")
-    bpy.types.Scene.signrecdemo_capture_face = bpy.props.BoolProperty(name="Capture Face", default=True, description="Enables the animation of the face using the data from FaceShift")
-    bpy.types.Scene.signrecdemo_capture_hands_rotation = bpy.props.BoolProperty(name="Capture Hands Rotation", default=False, description="Enables the recording of the rotation fo the hands")
+    bpy.types.Scene.signrecdemo_capture_elbows = bpy.props.BoolProperty(name="Record Elbows", default=False, description="Captures the Elbows when recording with the Leap")
+    bpy.types.Scene.signrecdemo_capture_fingers = bpy.props.BoolProperty(name="Record Fingers", default=True, description="Captures the Fingers when recording with the Leap")
+    bpy.types.Scene.signrecdemo_capture_face = bpy.props.BoolProperty(name="Record Face", default=True, description="Enables the animation of the face using the data from FaceShift")
+    bpy.types.Scene.signrecdemo_capture_hands_rotation = bpy.props.BoolProperty(name="Record Hands Rotation", default=False, description="Enables the recording of the rotation fo the hands")
 
     bpy.utils.register_class(DemoCaptureView)
     bpy.utils.register_class(DemoEditView)
