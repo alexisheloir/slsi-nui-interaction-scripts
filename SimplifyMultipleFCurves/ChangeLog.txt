@@ -7,7 +7,7 @@
 # v05 Solved multiple references to shared mathutil.Vector around. Still crashing, even without deleting keyframes.
 # v06 ... temporary working. Cannot store references to the FCurves selection during the first "execute()" call: they will be invalid at future invocations!!!
 # v07 Fixed curves indexing and retrieval. Only data_path and array_index i stored, and used to retrieve curves from fresh selection list. Rooooocks!!!
-# v08 Optimized surves storage.
+# v08 Optimised curves storage.
 # v09 Code cleanup. Debug prints removed.
 # v10 Executed tests to keep tangents during frames reconstruction. Failed.
 # v11 Fixed the management of curve borders in misaligned curves.
@@ -17,9 +17,10 @@
 # v15 Reworked execute method. Moved out code to share code with the second operator, which simplifies curves by specifying max KF number.
 # v16 Implemented Simplification by "Max Keyframes" :-)
 # v17 Simplifications and cleanups.
-# v18 Optimization. Split curves simplification analysis from actual F-Curve keyframes reconstruction. Faster in error extimation when simplifying by Max KF.
+# v18 Optimisation. Split curves simplification analysis from actual F-Curve keyframes reconstruction. Faster in error estimation when simplifying by Max KF.
 # v1.0 Cleanups for first release
 # v1.1 Changed simplification "by Percentage" in "by Error"
 # v1.2 Minor edits for Blender plugin conformance: inserted GPLv3 header, removed log from file.
 # v1.3 Some code cleanup
-# v1.4 Added normalization option, to allow simplification of curves with different amplitudes
+# v1.4 Added normalisation option, to allow simplification of curves with different amplitudes
+# v1.5 Reworked interaction and storage. Removed options in the operator panel. Moved all interaction in the curves panel. Removed storage of curves as class attribute since it was easily corrupting the undo stack. Using ctrl+Z is enough to operate comfortably.
