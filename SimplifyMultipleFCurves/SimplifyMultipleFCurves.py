@@ -84,13 +84,9 @@ class FCurveInfo:
         # Crossed extremes for invalid info
         self.min_val = sys.maxsize
         self.max_val = -sys.maxsize
-        
-    def toString(self):
-        # TODO -- relic of Java habits. Remove.
-        return "FCurveInfo["+self.data_path+"["+str(self.array_index)+"],min="+str(self.min_val)+",max="+str(self.max_val)+"]"
 
     def __str__(self):
-        return self.toString()
+        return "FCurveInfo["+self.data_path+"["+str(self.array_index)+"],min="+str(self.min_val)+",max="+str(self.max_val)+"]"
 
 
 class KFInfo:
@@ -158,7 +154,7 @@ def scanCurvesInfo(fcurves, sframe, eframe):
             idx += 1    # next kframe
             
         # log("First start kf for curve " + str(i) + " = " + str(idxs[i]))
-        # log("Curve Info: " + curve_info.toString())
+        # log("Curve Info: " + str(curve_info))
 
     # Scan the curves in parallel, advancing to the next keyframe with lower timestamp among all curves.
     # When a new keyframe is found, the value is taken from all curves.
@@ -257,7 +253,7 @@ def normalizeCurvesInfo(curves_data):
     # For each curve: first scan for min/max values, then replace the data with normalized ones.
     for curve_info in curves_data:
         kframesinfo = curves_data[curve_info]
-        log("Normailizing "+curve_info.toString())
+        log("Normailizing " + str(curve_info))
         #
         # Look for max absolute value in current data
         max_val = 0.0
@@ -638,7 +634,7 @@ class GRAPH_OT_SimplifyMultipleCurves(bpy.types.Operator):
         log("Storing time (secs): "+str(elapsed))
         log("Stored KFs=" + str(fcurves_max_keyframes))
         for curve_info in fcurves_data:
-            log("Curve Info: " + curve_info.toString() + " - #kframes="+str(len(fcurves_data[curve_info])))
+            log("Curve Info: " + str(curve_info) + " - #kframes="+str(len(fcurves_data[curve_info])))
         log("========================================================================")
 
         #
@@ -731,7 +727,7 @@ class GRAPH_OT_SimplifyMultipleCurvesKF(bpy.types.Operator):
         log("Storing time (secs): "+str(elapsed))
         log("Stored KFs=" + str(fcurves_max_keyframes))
         for curve_info in fcurves_data:
-            log("Curve Info: " + curve_info.toString() + " - #kframes="+str(len(fcurves_data[curve_info])))
+            log("Curve Info: " + str(curve_info) + " - #kframes="+str(len(fcurves_data[curve_info])))
         log("========================================================================")
 
         #
