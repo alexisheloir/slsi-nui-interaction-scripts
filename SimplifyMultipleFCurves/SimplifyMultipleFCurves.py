@@ -18,17 +18,17 @@
 
 import bpy
 from bpy.props import *  # for properties
+import mathutils         # for Vector
+
 import sys
 import math
-import mathutils        # for Vector
-
 import time             # for performance timing
 
 
 bl_info = {
     "name": "Simplify Multiple F-Curves",
     "author": "Fabrizio Nunnari",
-    "version": (1, 5),
+    "version": (1, 6),
     "blender": (2, 66, 0),
     "location": "Search > Simplify Curves",
     "description": "Simplifies Multiple FCurves",
@@ -41,6 +41,13 @@ bl_info = {
 This script simplifies and align keyframes of multiple F-Curves at once.
 """
 
+DEBUG_LOG = True
+
+
+def log(msg: str):
+    if DEBUG_LOG:
+        print(msg)
+
 
 def print_curves_info(fcurves) -> None:
     """ Print out keyframes
@@ -52,7 +59,7 @@ def print_curves_info(fcurves) -> None:
         for kf in curve.keyframe_points:
             # get time and value
             data = kf.co
-            print(str(data[0]) + "\t" + str(data[1]) )
+            log(str(data[0]) + "\t" + str(data[1]) )
     
     for i, fcurve in enumerate(fcurves):
         data_path = fcurve.data_path        # the property affected by the curve (location, rotation, scale,...)
@@ -61,9 +68,9 @@ def print_curves_info(fcurves) -> None:
         n_mods = len(fcurve.modifiers)
         n_kf = len(fcurve.keyframe_points)
         n_sampled = len(fcurve.sampled_points)
-        print(str(i) + "\t" + str(id(fcurve)) + "\t" + data_path + "[" + str(array_index)
-              + "]\trange " + str(rng[0]) + "-" + str(rng[1])
-              + "\t#modifiers " + str(n_mods) + "\t#KFs " + str(n_kf) + "\t#Sampled " + str(n_sampled))
+        log(str(i) + "\t" + str(id(fcurve)) + "\t" + data_path + "[" + str(array_index)
+            + "]\trange " + str(rng[0]) + "-" + str(rng[1])
+            + "\t#modifiers " + str(n_mods) + "\t#KFs " + str(n_kf) + "\t#Sampled " + str(n_sampled))
         # print_curve_keyframes(fcurve)
 
 
@@ -150,8 +157,8 @@ def scanCurvesInfo(fcurves, sframe, eframe):
 
             idx += 1    # next kframe
             
-        # print("First start kf for curve " + str(i) + " = " + str(idxs[i]))
-        # print("Curve Info: " + curve_info.toString())
+        # log("First start kf for curve " + str(i) + " = " + str(idxs[i]))
+        # log("Curve Info: " + curve_info.toString())
 
     # Scan the curves in parallel, advancing to the next keyframe with lower timestamp among all curves.
     # When a new keyframe is found, the value is taken from all curves.
@@ -162,17 +169,17 @@ def scanCurvesInfo(fcurves, sframe, eframe):
         # Take the minimum of the next times among the curves
         next_min_time = sys.maxsize # let's say "infinite"
         for i, curve in enumerate(fcurves):
-            # print_curves_info([curve])
+            # log_curves_info([curve])
             kframes = curve.keyframe_points
             idx = idxs[i]
             if idx < len(kframes) - 1:     # if there is still a "next keyframe"
                 next_time = kframes[idx+1].co[0]    # take time of next keyframe
                 # if the next time is the new minimum AND still inside the desired range.
                 if next_time < next_min_time and next_time <= eframe:      # store the minimum of them
-                    # print("  Next min time found in curve " + str(i) + " at idx " + str(idx+1) + ":" + str(next_time))
+                    # log("  Next min time found in curve " + str(i) + " at idx " + str(idx+1) + ":" + str(next_time))
                     next_min_time = next_time
 
-        # print("Next min time is " + str(next_min_time) )
+        # log("Next min time is " + str(next_min_time) )
 
         # If a valid next_min_time is found: advance indices and store the keyframe values.
         if next_min_time != sys.maxsize:
@@ -187,7 +194,7 @@ def scanCurvesInfo(fcurves, sframe, eframe):
                 idx = idxs[i]
                 if idx < len(kframes) -1:
                     if kframes[idx+1].co[0] <= next_min_time:
-                        # print("Advancing frame to " + str(idx+1) + " for curve " + str(i)) # + ": ", end="")
+                        # log("Advancing frame to " + str(idx+1) + " for curve " + str(i)) # + ": ", end="")
                         idxs[i] += 1                            # advance the kexframe
 
             #
@@ -202,7 +209,7 @@ def scanCurvesInfo(fcurves, sframe, eframe):
                 if idx >= 0 and idx < len(kframes):
                     time_at_index = kframes[idx].co[0]
 
-                # print("STORE crv " + str(i) + ", idx " + str(idx) + ", t " + str(time_at_index))
+                # log("STORE crv " + str(i) + ", idx " + str(idx) + ", t " + str(time_at_index))
 
                 if time_at_index == next_min_time:   # we are on time, store vertex info
                     new_kf_info = KFInfo.fromKeyFrame(kf=kframes[idx])
@@ -211,12 +218,12 @@ def scanCurvesInfo(fcurves, sframe, eframe):
                     val = kframes[idx].co[1]
     
                     # UPDATE MIN/MAX
-                    # print("->"+str(val))
+                    # log("->"+str(val))
                     if val > curve_info.max_val:
-                        # print("bigger than "+str(curve_info.max_val))
+                        # log("bigger than "+str(curve_info.max_val))
                         curve_info.max_val = val            
                     if val < curve_info.min_val:
-                        # print("smaller than "+str(curve_info.min_val))
+                        # log("smaller than "+str(curve_info.min_val))
                         curve_info.min_val = val
     
                 else:                                   # otherwise we interpolate the value
@@ -224,7 +231,7 @@ def scanCurvesInfo(fcurves, sframe, eframe):
                     p = mathutils.Vector((next_min_time, val))
                     new_kf_info = KFInfo.fromCoords(vector=p)
             
-                # print("Adding " + str(newKFInfo.co) + " hasTng=" + str(newKFInfo.hasTangentsData))
+                # log("Adding " + str(newKFInfo.co) + " hasTng=" + str(newKFInfo.hasTangentsData))
             
                 # Finally, store the value
                 out_dict[curve_info].append(new_kf_info)
@@ -250,7 +257,7 @@ def normalizeCurvesInfo(curves_data):
     # For each curve: first scan for min/max values, then replace the data with normalized ones.
     for curve_info in curves_data:
         kframesinfo = curves_data[curve_info]
-        print("Normailizing "+curve_info.toString())
+        log("Normailizing "+curve_info.toString())
         #
         # Look for max absolute value in current data
         max_val = 0.0
@@ -261,7 +268,7 @@ def normalizeCurvesInfo(curves_data):
             if abs(val) > max_val:
                 max_val = val            
 
-        print("Maxval="+str(max_val))
+        log("Maxval="+str(max_val))
 
         #
         # Now normalize all values towards [0,1]
@@ -335,17 +342,17 @@ def simplify_curves_R(curves_data, s_idx, e_idx, threshold_error, indices):
     
     for curve in curves_data.keys():
         kframes = curves_data[curve]
-        # print("For curve " + curve.data_path + str(curve.array_index))
+        # log("For curve " + curve.data_path + str(curve.array_index))
 
         # For all the indices within the range
         for idx in range(s_idx+1, e_idx):
-            # print("Considering index " + str(idx) + ": " + str(kframes[idx].co))
+            # log("Considering index " + str(idx) + ": " + str(kframes[idx].co))
             error = altitude(point1=kframes[s_idx].co, point2=kframes[e_idx].co, pointn=kframes[idx].co)
-            # print("Error="+str(error))
+            # log("Error="+str(error))
             if error > threshold_error:
                 bigErrorFound = True
                 if error > bigErrorValue:
-                    # print("New big error found "+ str(error))
+                    # log("New big error found "+ str(error))
                     bigErrorValue = error
                     bigErrorCurve = curve
                     bigErrorIdx = idx
@@ -360,9 +367,9 @@ def simplify_curves_R(curves_data, s_idx, e_idx, threshold_error, indices):
         # error_time = bigErrorCurve.keyframe_points[bigErrorIdx].co[0]
         kframes = curves_data[bigErrorCurve]
         error_time = kframes[bigErrorIdx].co[0]
-        # print("Biggest Error in curve " + bigErrorCurve.data_path + str(bigErrorCurve.array_index) + ": " + str(bigErrorValue) + " time="+str(error_time) + " (idx " + str(bigErrorIdx) + ")")
+        # log("Biggest Error in curve " + bigErrorCurve.data_path + str(bigErrorCurve.array_index) + ": " + str(bigErrorValue) + " time="+str(error_time) + " (idx " + str(bigErrorIdx) + ")")
 
-        # print("RECURSING")
+        # log("RECURSING")
         # left recursion
         simplify_curves_R(curves_data, s_idx, bigErrorIdx, threshold_error, indices)
         
@@ -377,16 +384,16 @@ def simplify_curves(curves_data, n_frames, error):
     Returns the array of the indices to keep for the reconstruction.
     """
 
-    # print(curves_data)
+    # log(curves_data)
     # for c in curves_data.keys():
-    #    print("#KFs " + str(len(curves_data[c])))
+    #    log("#KFs " + str(len(curves_data[c])))
 
     # No curves? No party.
     if len(curves_data) == 0:
-        print("No curves selected")
+        log("No curves selected")
         return
 
-    print("From "+str(n_frames) + " keyframes (incl. borders)")
+    log("From "+str(n_frames) + " keyframes (incl. borders)")
 
     # Prepare the vector that will be filled with the indices to keep
     indices_to_keep = [0, n_frames-1]
@@ -396,7 +403,7 @@ def simplify_curves(curves_data, n_frames, error):
     simplify_curves_R(curves_data, 0, n_frames-1, threshold_error=error, indices=indices_to_keep)
     indices_to_keep.sort()
     
-    print("Keeping " + str(len(indices_to_keep)) + " keyframes: " + str(indices_to_keep))
+    log("Keeping " + str(len(indices_to_keep)) + " keyframes: " + str(indices_to_keep))
     
     return indices_to_keep
 
@@ -423,14 +430,14 @@ def apply_simplification(selected_curves, sframe, eframe, curves_data, indices_t
         # retrieves the curve with corresponding key info from the selection      
         curve = get_curve(curve_key)
         
-        # print("Retrieved from selection: " + str(curve))
+        # log("Retrieved from selection: " + str(curve))
         
         if curve is None:
-            print("No data were stored for curve: " + curve_key.data_path + str(curve_key.array_index))
+            log("No data were stored for curve: " + curve_key.data_path + str(curve_key.array_index))
             continue                            # <---- Warning!!! Skip cycle.
         
-        # print("Before: ", end="")
-        # print_curves_info([curve])
+        # log("Before: ", end="")
+        # log_curves_info([curve])
         
         kframes = curve.keyframe_points
 
@@ -448,22 +455,22 @@ def apply_simplification(selected_curves, sframe, eframe, curves_data, indices_t
             time = kframes[idx].co[0]
             if time > eframe:
                 break
-            # print("Deleting kframe " + str(idx))
+            # log("Deleting kframe " + str(idx))
             kframes.remove(kframes[idx])
             
         #
         # RE-ADDING FRAMES
 
-        # print("ADDING FRAMES in: " + curve_key.data_path + str(curve_key.array_index))
+        # log("ADDING FRAMES in: " + curve_key.data_path + str(curve_key.array_index))
         kfdata = curves_data[curve_key]
 
         # Single Step: tangent data ignored
         for i in indices_to_keep:
-            # print("Adding coordinates for index " + str(i) + " " + str(kfdata[i].co))
+            # log("Adding coordinates for index " + str(i) + " " + str(kfdata[i].co))
             kfinfo = kfdata[i]
             newkf = kframes.insert(frame=kfinfo.co[0], value=kfinfo.co[1], options={'FAST'})
 
-        # print("After: ", end="")
+        # log("After: ", end="")
         # print_curves_info([curve])
 
 
@@ -513,7 +520,7 @@ def get_selected_fcurves(context):
         # if(sframe == None):
         #     operator.report({'ERROR'}, "No curves selected!")
 
-    print("Selected " + str(len(selected_fcurves)) + " curves in range " + str(sframe) + "-" + str(eframe))
+    log("Selected " + str(len(selected_fcurves)) + " curves in range " + str(sframe) + "-" + str(eframe))
 
     return selected_fcurves, sframe, eframe
 
@@ -558,8 +565,8 @@ def poll_for_fcurves(context):
                 fcurves = act.fcurves                
                 if fcurves is not None:
                     n_selected_curves = sum([1 if c.select else 0 for c in fcurves])
-                    # print("poll n curves")
-                    # print(n_selected_curves)
+                    # log("poll n curves")
+                    # log(n_selected_curves)
                     if n_selected_curves > 0:
                         return True
 
@@ -591,7 +598,7 @@ class GRAPH_OT_DeselectFCurves(bpy.types.Operator):
 
         for c in action.fcurves:
             c.select = False
-            # print(str(c.select) + "\t" + str(c.data_path))
+            # log(str(c.select) + "\t" + str(c.data_path))
 
         return {'FINISHED'}
 
@@ -614,25 +621,25 @@ class GRAPH_OT_SimplifyMultipleCurves(bpy.types.Operator):
         return poll_for_fcurves(context)
 
     def execute(self, context):
-        print("EXECUTE "+str(hex(id(self)))+ ", context="+str(context))
+        log("EXECUTE "+str(hex(id(self))) + ", context="+str(context))
 
         selected_fcurves, sframe, eframe = get_selected_fcurves(context)
-        print("*"*20 + " SELECTION:")
+        log("*"*20 + " SELECTION:")
         print_curves_info(selected_fcurves)
-        print("*"*20)
+        log("*"*20)
 
         #
         # fill the fcurves_data and fcurves_max_offset fields
-        print("==========================> Storing curves <============================")
+        log("==========================> Storing curves <============================")
         before = time.time()
         fcurves_data, fcurves_max_keyframes = scanCurvesInfo(fcurves=selected_fcurves, sframe=sframe, eframe=eframe)
         after = time.time()
         elapsed = after-before
-        print("Storing time (secs): "+str(elapsed))
-        print("Stored KFs=" + str(fcurves_max_keyframes))
+        log("Storing time (secs): "+str(elapsed))
+        log("Stored KFs=" + str(fcurves_max_keyframes))
         for curve_info in fcurves_data:
-            print("Curve Info: " + curve_info.toString() + " - #kframes="+str(len(fcurves_data[curve_info])))
-        print("========================================================================")
+            log("Curve Info: " + curve_info.toString() + " - #kframes="+str(len(fcurves_data[curve_info])))
+        log("========================================================================")
 
         #
         # Check data consistency
@@ -641,13 +648,13 @@ class GRAPH_OT_SimplifyMultipleCurves(bpy.types.Operator):
 
         normalize = context.scene.simplify_fcurves_normalize
         if normalize:
-            print("==========================> NORMALIZATION <============================")
+            log("==========================> NORMALIZATION <============================")
             before = time.time()
             normalized_fcurves_data = normalizeCurvesInfo(fcurves_data)
             after = time.time()
             elapsed = after-before
-            print("Normalization time (secs): "+str(elapsed))
-            print("========================================================================")
+            log("Normalization time (secs): "+str(elapsed))
+            log("========================================================================")
 
         # Variable to store the maximum offset among all curves
         # Needed to control the simplification as percentage
@@ -658,15 +665,15 @@ class GRAPH_OT_SimplifyMultipleCurves(bpy.types.Operator):
             fcurves_max_offset = get_max_offset(fcurves_data)
         after = time.time()
         elapsed = after-before
-        print("Computation of max offset time (secs): "+str(elapsed))
-        print("Max Error among curves=" + str(fcurves_max_offset))
+        log("Computation of max offset time (secs): "+str(elapsed))
+        log("Max Error among curves=" + str(fcurves_max_offset))
 
         error_pct = context.scene.simplify_fcurves_error
-        print("Simplification Error Pct = " + str(error_pct))
+        log("Simplification Error Pct = " + str(error_pct))
         err = fcurves_max_offset * error_pct / 100.0
-        print("Simplifying with error: "+str(err))
+        log("Simplifying with error: "+str(err))
 
-        print("*"*20)
+        log("*"*20)
         before = time.time()
         if normalize:
             kept_indices = simplify_curves(curves_data=normalized_fcurves_data, n_frames=fcurves_max_keyframes, error=err)
@@ -674,17 +681,17 @@ class GRAPH_OT_SimplifyMultipleCurves(bpy.types.Operator):
             kept_indices = simplify_curves(curves_data=fcurves_data, n_frames=fcurves_max_keyframes, error=err)
         after = time.time()
         elapsed = after-before
-        print("Simplification time (secs): "+str(elapsed))
-        print("*"*20)
+        log("Simplification time (secs): "+str(elapsed))
+        log("*"*20)
 
-        print("+"*20)
+        log("+"*20)
         # def apply_simplification(selected_curves, sframe, eframe, curves_data, indices_to_keep):
         before = time.time()        
         apply_simplification(selected_curves=selected_fcurves, sframe=sframe, eframe=eframe, curves_data=fcurves_data, indices_to_keep=kept_indices)
         after = time.time()
         elapsed = after-before
-        print("Reconstruction time (secs): "+str(elapsed))
-        print("+"*20)
+        log("Reconstruction time (secs): "+str(elapsed))
+        log("+"*20)
 
         return {'FINISHED'}
     
@@ -707,25 +714,25 @@ class GRAPH_OT_SimplifyMultipleCurvesKF(bpy.types.Operator):
         return poll_for_fcurves(context)
 
     def execute(self, context):
-        print("EXECUTE")
+        log("EXECUTE")
 
         selected_fcurves, sframe, eframe = get_selected_fcurves(context)
-        print("*"*20 + " SELECTION:")
+        log("*"*20 + " SELECTION:")
         print_curves_info(selected_fcurves)
-        print("*"*20)
+        log("*"*20)
 
         #
         # fill the fcurves_data and fcurves_max_offset fields
-        print("==========================> Storing curves <============================")
+        log("==========================> Storing curves <============================")
         before = time.time()
         fcurves_data, fcurves_max_keyframes = scanCurvesInfo(fcurves=selected_fcurves, sframe=sframe, eframe=eframe)
         after = time.time()
         elapsed = after-before
-        print("Storing time (secs): "+str(elapsed))
-        print("Stored KFs=" + str(fcurves_max_keyframes))
+        log("Storing time (secs): "+str(elapsed))
+        log("Stored KFs=" + str(fcurves_max_keyframes))
         for curve_info in fcurves_data:
-            print("Curve Info: " + curve_info.toString() + " - #kframes="+str(len(fcurves_data[curve_info])))
-        print("========================================================================")
+            log("Curve Info: " + curve_info.toString() + " - #kframes="+str(len(fcurves_data[curve_info])))
+        log("========================================================================")
 
         #
         # Check data consistency
@@ -735,13 +742,13 @@ class GRAPH_OT_SimplifyMultipleCurvesKF(bpy.types.Operator):
 
         normalize = context.scene.simplify_fcurves_normalize
         if normalize:
-            print("==========================> NORMALIZATION <============================")
+            log("==========================> NORMALIZATION <============================")
             before = time.time()
             normalized_fcurves_data = normalizeCurvesInfo(fcurves_data)
             after = time.time()
             elapsed = after-before
-            print("Normalization time (secs): "+str(elapsed))
-            print("========================================================================")
+            log("Normalization time (secs): "+str(elapsed))
+            log("========================================================================")
 
         # Variable to store the maximum offset among all curves
         # Needed to control the simplification as percentage
@@ -752,18 +759,18 @@ class GRAPH_OT_SimplifyMultipleCurvesKF(bpy.types.Operator):
             fcurves_max_offset = get_max_offset(fcurves_data)
         after = time.time()
         elapsed = after-before
-        print("Computation of max offset time (secs): "+str(elapsed))
-        print("Max Error among curves=" + str(fcurves_max_offset))
+        log("Computation of max offset time (secs): "+str(elapsed))
+        log("Max Error among curves=" + str(fcurves_max_offset))
 
         maxkf = context.scene.simplify_fcurves_max_keyframes
-        print("Trying to simplify for max #KF " + str(maxkf))
+        log("Trying to simplify for max #KF " + str(maxkf))
 
         # The relative precision to use to keep on trying to optimize the search
         relativePrecision = 0.001
 
         # The refinement algorithm will stop if the difference in error value between two cycles is less then this value.
         precision = relativePrecision * fcurves_max_offset
-        print("Precision " + str(precision))
+        log("Precision " + str(precision))
 
         minErr = 0
         maxErr = fcurves_max_offset
@@ -777,7 +784,7 @@ class GRAPH_OT_SimplifyMultipleCurvesKF(bpy.types.Operator):
         kept_indices = []
         done = False
         while not done:
-            print("Trying simplification with error " + str(err))
+            log("Trying simplification with error " + str(err))
 
             if normalize:
                 kept_indices = simplify_curves(curves_data=normalized_fcurves_data, n_frames=fcurves_max_keyframes, error=err)
@@ -785,7 +792,7 @@ class GRAPH_OT_SimplifyMultipleCurvesKF(bpy.types.Operator):
                 kept_indices = simplify_curves(curves_data=fcurves_data, n_frames=fcurves_max_keyframes, error=err)
             n = len(kept_indices)
 
-            print("--> " + str(n) + " KFs")
+            log("--> " + str(n) + " KFs")
             if n > maxkf:  # we have to increase the error to have less keyframes
                 minErr = err
             else:               # we can decrease the error to increment the keyframes
@@ -793,7 +800,7 @@ class GRAPH_OT_SimplifyMultipleCurvesKF(bpy.types.Operator):
 
             new_err = minErr + ((maxErr - minErr) / 2.0)
             delta = abs(new_err - err)
-            print("Min/Max " + str(minErr) + " / " + str(maxErr) + ", New_err " + str(new_err) + ", delta " + str(delta))
+            log("Min/Max " + str(minErr) + " / " + str(maxErr) + ", New_err " + str(new_err) + ", delta " + str(delta))
             err = new_err            
             
             if delta <= precision:
@@ -807,7 +814,7 @@ class GRAPH_OT_SimplifyMultipleCurvesKF(bpy.types.Operator):
                         kept_indices = simplify_curves(curves_data=fcurves_data, n_frames=fcurves_max_keyframes, error=err)
                 done = True
                 
-        print("Final err " + str(err))
+        log("Final err " + str(err))
 
         # def apply_simplification(selected_curves, sframe, eframe, curves_data, indices_to_keep):
         apply_simplification(selected_curves=selected_fcurves, sframe=sframe, eframe=eframe,
@@ -851,13 +858,12 @@ class GRAPH_OT_SimplifyMultipleCurvesPanel(bpy.types.Panel):
         self.layout.operator("graph.deselect_fcurves")
 
 
-
 #################################################
 # REGISTER
 #################################################
 def register():
 
-    print("Registering Simplify Multiple F-Curves classes...")
+    log("Registering Simplify Multiple F-Curves classes...")
 
     bpy.types.Scene.simplify_fcurves_error =\
         bpy.props.FloatProperty(name="Max Error (%)",
@@ -867,15 +873,15 @@ def register():
                                 min=0.0,
                                 max=100.0,
                                 subtype="PERCENTAGE",
-                                default=0, precision=2)
+                                default=80, precision=2)
 
     bpy.types.Scene.simplify_fcurves_max_keyframes =\
-        bpy.props.IntProperty(name="Max #KF", description="Max number of keyframes retained after simplification",
+        bpy.props.IntProperty(name="Max #KF", description="Max number of keyframes retained after simplification.",
                               min=2, default=2)
 
     bpy.types.Scene.simplify_fcurves_normalize =\
         bpy.props.BoolProperty(name="Normalize", default=True,
-                               description="If True, the curves are normalized in the range 0-1 befaore performing the simplification."
+                               description="If True, the curves are normalized in the range 0-1 before performing the simplification."
                                            "In this way, curves with bigger amplitudes do not _eat_ the small ones.")
 
     # TODO -- insert a property to switch console output
@@ -887,7 +893,7 @@ def register():
 
 
 def unregister():
-    print("Unregistering Simplify Multiple F-Curves classes...")
+    log("Unregistering Simplify Multiple F-Curves classes...")
     bpy.utils.unregister_class(GRAPH_OT_SimplifyMultipleCurvesPanel)
     bpy.utils.unregister_class(GRAPH_OT_SimplifyMultipleCurvesKF)
     bpy.utils.unregister_class(GRAPH_OT_SimplifyMultipleCurves)
